@@ -1,0 +1,10 @@
+mutation {
+  closePullRequest(input: {
+    pullRequestId: "PR_kwDOIgwkiM5DwOlu"
+  }) {
+    pullRequest {
+      id
+      title
+    }
+  }
+}

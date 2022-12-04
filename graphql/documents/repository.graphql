@@ -1,0 +1,22 @@
+query($owner: String!, $name: String!) {
+  repository(owner: $owner, name: $name) {
+    name
+    id
+    refs(refPrefix: "refs/heads/", first: 3) {
+      nodes {
+        id
+        name
+      }
+    }
+    pullRequests(first: 3, states: OPEN) {
+      nodes {
+        id
+        title
+        author {
+          login
+        }
+        baseRefName
+      }
+    }
+  }
+}

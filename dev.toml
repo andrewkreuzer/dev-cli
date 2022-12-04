@@ -1,0 +1,17 @@
+[root]
+org = "andrewkreuzer"
+name = "dev-cli"
+url = "git@github.com:andrewkreuzer/dev-cli"
+[repos.graphql-tests]
+org = "andrewkreuzer"
+name = "graphql-tests"
+url = "git@github.com:andrewkreuzer/graphql-tests.git"
+path = "graphql-tests"
+
+[repos.repo_1]
+name = "repo_1"
+path = "tests/repo_1"
+
+[repos.repo_2]
+name = "repo_2"
+path = "tests/repo_2"

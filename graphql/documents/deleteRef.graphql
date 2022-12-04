@@ -1,0 +1,7 @@
+mutation {
+  deleteRef(input: {
+    refId:"REF_kwDOIgwkiLByZWZzL2hlYWRzL2dyYXBo"
+  }) {
+    clientMutationId
+  }
+}
