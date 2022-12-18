@@ -9,6 +9,9 @@ use dev_cli::{
 pub enum RepoCommand {
     Clone {
         repo: Option<String>,
+
+        #[clap(short, long, default_value = ".")]
+        path: String,
     },
     Add {
         name: String,
@@ -20,14 +23,14 @@ pub async fn handle_repo_command(
     config: &mut Config
 ) -> Result<(), anyhow::Error> {
     match cmd {
-        Some(RepoCommand::Clone { repo }) => {
+        Some(RepoCommand::Clone { repo, path }) => {
             if let Some(repo) = repo {
                 let mut git_repo = match config.get_repo(repo) {
                     Some(r) => r.to_owned(),
                     None => git::GitRepository::new(repo, None)?,
                 };
 
-                git_repo.clone_repo()?;
+                git_repo.clone_repo(path)?;
                 config.update_repo(git_repo)?;
             }
         }

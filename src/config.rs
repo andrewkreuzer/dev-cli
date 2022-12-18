@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, hash_map::Values},
     error,
     env,
     fmt,
@@ -58,54 +58,31 @@ impl From<toml::ser::Error> for Error {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Root {
-    pub org: Option<String>,
-    pub name: String,
-    pub url: Option<String>,
-    pub path: Option<String>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
-    root: Root,
     repos: HashMap<String, GitRepository>,
-}
-
-impl PartialEq<GitRepository> for Root {
-    fn eq(&self, other: &GitRepository) -> bool {
-        self.name == other.name
-        || self.url == other.url
-    }
 }
 
 impl Config {
     pub fn new(repositories: Option<Vec<GitRepository>>) -> Self {
         let mut repos = HashMap::new();
+
         if let Some(repositories) = repositories {
             for r in repositories.into_iter() {
                 repos.insert(r.name.clone(), r);
             }
         }
 
-        let root = Root{
-            url: Some("git@github.com:andrewkreuzer/dev-cli".to_string()),
-            org: Some("andrewkreuzer".to_string()),
-            name: "dev-cli".to_string(),
-            path: None,
-        };
-
         Config {
-            root,
             repos,
         }
     }
 
-    pub fn get_root(&self) -> &Root {
-        &self.root
-    }
-
     pub fn get_repo(&self, repo: &str) -> Option<&GitRepository> {
         self.repos.get(repo)
+    }
+
+    pub fn get_repos(&self) ->  Values<String, GitRepository> {
+        self.repos.values()
     }
 
     pub fn get_mut_repo(&mut self, repo: &str) -> Option<&mut GitRepository> {

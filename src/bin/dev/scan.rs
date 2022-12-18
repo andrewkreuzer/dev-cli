@@ -1,13 +1,13 @@
-use std::{path::PathBuf, env};
+use std::{path::PathBuf, path::Path, env};
 
 use anyhow::bail;
-use log::info;
 use regex::Regex;
 
 use dev_cli::{git::{self, GitRepository}, config};
 
 pub async fn handle_scan_command(
     directory: Option<PathBuf>,
+    depth: usize,
     recurse: bool,
     add: bool,
     config: &mut config::Config
@@ -20,7 +20,7 @@ pub async fn handle_scan_command(
         None => cwd.clone()
     };
 
-    for (path, repo) in git::scan(&directory, recurse)?.into_iter() {
+    for (path, repo) in git::scan(&directory, depth, recurse)?.into_iter() {
 
         // default to origin remote for now
         let mut url = None;
@@ -34,16 +34,13 @@ pub async fn handle_scan_command(
         let dir = path
             .file_name()
             .and_then(|d| d.to_str())
-            .and_then(|d| Some(d.to_string()));
+            .and_then(|d| Some(d.to_string()))
+            .unwrap();
 
-        let relativised_path = match cwd.join(&path).strip_prefix(&cwd) {
-            Ok(p) => {
-                if cwd.join(p) == cwd {
-                    Some(".".to_string())
-                } else {
-                    Some(p.to_str().unwrap().to_string())
-                }
-            }
+        // TODO: this is bad, should be no reason to create the full path
+        let file_full_path = cwd.join(&path);
+        let relativised_path = match file_full_path.strip_prefix(&cwd) {
+            Ok(p) => is_root_repo(&p, &file_full_path, &cwd),
             Err(e) => bail!(e),
         };
 
@@ -51,7 +48,7 @@ pub async fn handle_scan_command(
         let (name, org) = match &url {
             Some(url) => parse_remote_url(url),
             None => {
-                (dir.clone().unwrap(), None)
+                (dir, None)
             }
         };
 
@@ -62,10 +59,6 @@ pub async fn handle_scan_command(
                 url,
                 path: relativised_path,
             };
-            if git_repo.eq(config.get_root()) {
-                info!("{name} is root, skipping");
-                continue
-            }
             config.add_repo(Some(name), &git_repo)?;
 
             config.update()?;
@@ -75,9 +68,17 @@ pub async fn handle_scan_command(
     Ok(())
 }
 
+fn is_root_repo(p: &Path, file_path: &PathBuf, cwd: &PathBuf) -> Option<String> {
+    if file_path == cwd {
+        Some(".".to_string())
+    } else {
+        p.to_str().and_then(|p| Some(p.to_string()))
+    }
+}
+
 fn parse_remote_url(url: &str) -> (String, Option<String>) {
     let re = Regex::new(
-        r"(https|git)(://)?(@?)(\w+).com(:|/)(\w+)/([\w-]+).git"
+        r"(https|git)(://)?(@?)(\w+).com(:|/)(\w+)/([\w-]+)(.git)?"
     ).unwrap();
     let caps = re.captures(&url).unwrap();
     let org = caps.get(6).unwrap().as_str();
