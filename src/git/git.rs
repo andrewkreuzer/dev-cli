@@ -68,7 +68,7 @@ impl GitRepository {
         })
     }
 
-    fn open(&self) -> Result<Repository, git2::Error> {
+    pub fn open(&self) -> Result<Repository, git2::Error> {
         let path = Path::new(self.path.as_ref().unwrap());
         let repo = Repository::open(path)?;
 
@@ -166,7 +166,8 @@ impl GitRepository {
 
         let obj = repo.revparse_single(branch)?;
         repo.checkout_tree(&obj, Some(&mut cb))?;
-        repo.set_head(branch)?;
+        let refname = format!("refs/heads/{}", branch);
+        repo.set_head(&refname)?;
 
         Ok(self)
     }
@@ -198,15 +199,8 @@ impl GitRepository {
         Ok(self)
     }
 
-    pub fn get_git_repo(&self) -> Result<Repository, anyhow::Error> {
-        match &self.path {
-            Some(path) => Ok(git2::Repository::open(path)?),
-            None => bail!("Can't find this repo on disk")
-        }
-    }
-
     pub fn push(&self) -> Result<&Self, anyhow::Error> {
-        let git_repo = self.get_git_repo()?;
+        let git_repo = self.open()?;
         let head = git_repo.head()?;
 
         let refname = match head.name() {
@@ -223,7 +217,7 @@ impl GitRepository {
     }
 
     pub fn pull(&self, branch: &str) -> Result<&Self, anyhow::Error> {
-        let git_repo = self.get_git_repo()?;
+        let git_repo = self.open()?;
         let mut remote = git_repo.find_remote("origin")?;
         let fetch_commit = do_fetch(&git_repo, &[branch], &mut remote)?;
         do_merge(&git_repo, &branch, fetch_commit)?;

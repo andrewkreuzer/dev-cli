@@ -15,6 +15,7 @@ pub enum ReposCommand {
         #[clap(short, long)]
         message: String
     },
+    Update
 }
 
 pub async fn handle_repos_command(
@@ -35,6 +36,17 @@ pub async fn handle_repos_command(
 
                 repo.add(vec![destination.to_string()], true)?;
                 repo.commit(&message)?;
+            }
+        }
+        Some(ReposCommand::Update) => {
+            for repo in config.get_repos() {
+                if repo.url == None {
+                    warn!("{} does not have a url", repo.name);
+                    continue
+                }
+
+                repo.checkout("main")?
+                    .pull("main")?;
             }
         }
         None => (),

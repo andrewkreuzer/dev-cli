@@ -1,5 +1,6 @@
-use std::path::PathBuf;
-use log::{warn, info};
+use std::{path::PathBuf, fs::{File, self}};
+use env_logger::Target;
+use log::{warn, info, LevelFilter};
 
 use clap::{Parser, Subcommand};
 use clap_verbosity_flag::{Verbosity, InfoLevel};
@@ -68,9 +69,7 @@ enum Commands {
 
 pub async fn init() -> Result<(), anyhow::Error> {
     let cli = Cli::parse();
-    env_logger::Builder::new()
-        .filter_level(cli.verbose.log_level_filter())
-        .init();
+    log(cli.verbose.log_level_filter())?;
 
     let config_path: PathBuf = match cli.config.as_deref() {
         Some(path) => path.to_path_buf(),
@@ -122,6 +121,31 @@ pub async fn init() -> Result<(), anyhow::Error> {
         }
         None => (),
     };
+
+    Ok(())
+}
+
+fn log(log_level: LevelFilter) -> Result<(), anyhow::Error> {
+    let cache_dir = dirs::cache_dir().unwrap().join("dev");
+    if !cache_dir.is_dir() {
+        fs::create_dir(&cache_dir)?;
+    }
+
+    let log_file = cache_dir.join("dev.log");
+    let file: File;
+    if !log_file.is_file() {
+        file = File::create(log_file)?;
+    } else {
+        file = File::options()
+            .append(true)
+            .create(true)
+            .open(log_file)?;
+    }
+
+    env_logger::Builder::new()
+        .filter_level(log_level)
+        .target(Target::Pipe(Box::new(file)))
+        .init();
 
     Ok(())
 }
