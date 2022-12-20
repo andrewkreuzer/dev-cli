@@ -22,7 +22,7 @@ pub async fn handle_scan_command(
         None => cwd.clone(),
     };
 
-    for (path, repo) in git::scan(&directory, depth, recurse)?.into_iter() {
+    for (path, repo) in git::scan::run(&directory, depth, recurse)?.into_iter() {
         // default to origin remote for now
         let mut url = None;
         if let Ok(origin) = repo.find_remote("origin") {

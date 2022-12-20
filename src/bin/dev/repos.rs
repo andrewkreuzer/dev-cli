@@ -49,7 +49,7 @@ pub async fn handle_repos_command(
                     continue;
                 }
 
-                repo.checkout("main")?.pull("main")?;
+                repo.checkout("main")?.pull(Some("main"))?;
             }
         }
         None => (),

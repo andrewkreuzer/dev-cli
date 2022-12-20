@@ -1,4 +1,4 @@
-use log::{info, trace, warn};
+use log::{info, warn};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::{env, error::Error, fmt, io};
@@ -6,7 +6,6 @@ use std::{env, error::Error, fmt, io};
 use anyhow::{anyhow, bail};
 use git2::{Cred, RemoteCallbacks, Repository, StashFlags};
 use serde::{Deserialize, Serialize};
-use walkdir::{DirEntry, WalkDir};
 
 #[derive(Debug)]
 pub enum GitError {
@@ -75,6 +74,24 @@ impl GitRepository {
         Ok(repo)
     }
 
+    pub fn current_branch(&self) -> Result<String, anyhow::Error> {
+        let git_repo = self.open()?;
+        let head = git_repo.head()?;
+
+        head
+            .shorthand()
+            .and_then(|s| Some(s.to_string()))
+            .ok_or(anyhow!("head has no name"))
+    }
+
+    pub fn remote(&self) -> Result<String, git2::Error> {
+        let repo = self.open()?;
+        let remote = repo.find_remote("origin")?;
+        let url = remote.url().unwrap();
+
+        Ok(url.to_string())
+    }
+
     pub fn clone_repo(&mut self, path: &str) -> Result<&Self, anyhow::Error> {
         let mut fo = git2::FetchOptions::new();
         fo.remote_callbacks(callbacks());
@@ -98,6 +115,26 @@ impl GitRepository {
                 None => None,
             };
         }
+
+        Ok(self)
+    }
+
+    pub fn branch(&self, branch: &str) -> Result<&Self, git2::Error> {
+        let repo = self.open()?;
+        repo.branch(branch, &repo.head()?.peel_to_commit()?, false)?;
+
+        Ok(self)
+    }
+
+    pub fn checkout(&self, branch: &str) -> Result<&Self, git2::Error> {
+        let repo = self.open()?;
+        let mut cb = git2::build::CheckoutBuilder::new();
+        cb.force();
+
+        let obj = repo.revparse_single(branch)?;
+        repo.checkout_tree(&obj, Some(&mut cb))?;
+        let refname = format!("refs/heads/{}", branch);
+        repo.set_head(&refname)?;
 
         Ok(self)
     }
@@ -127,50 +164,6 @@ impl GitRepository {
         index.write()?;
 
         Ok(self)
-    }
-
-    pub fn stash(&self) -> Result<&Self, git2::Error> {
-        let mut repo = self.open()?;
-
-        repo.stash_save(&repo.signature()?, "stash", Some(StashFlags::DEFAULT))?;
-
-        Ok(self)
-    }
-
-    pub fn stash_pop(&self) -> Result<&Self, git2::Error> {
-        let mut repo = self.open()?;
-
-        repo.stash_pop(0, None)?;
-
-        Ok(self)
-    }
-
-    pub fn branch(&self, branch: &str) -> Result<&Self, git2::Error> {
-        let repo = self.open()?;
-        repo.branch(branch, &repo.head()?.peel_to_commit()?, false)?;
-
-        Ok(self)
-    }
-
-    pub fn checkout(&self, branch: &str) -> Result<&Self, git2::Error> {
-        let repo = self.open()?;
-        let mut cb = git2::build::CheckoutBuilder::new();
-        cb.force();
-
-        let obj = repo.revparse_single(branch)?;
-        repo.checkout_tree(&obj, Some(&mut cb))?;
-        let refname = format!("refs/heads/{}", branch);
-        repo.set_head(&refname)?;
-
-        Ok(self)
-    }
-
-    pub fn get_remote(&self) -> Result<String, git2::Error> {
-        let repo = self.open()?;
-        let remote = repo.find_remote("origin")?;
-        let url = remote.url().unwrap();
-
-        Ok(url.to_string())
     }
 
     pub fn commit(&self, commit_message: &str) -> Result<&Self, git2::Error> {
@@ -209,22 +202,58 @@ impl GitRepository {
         Ok(self)
     }
 
-    pub fn pull(&self, branch: &str) -> Result<&Self, anyhow::Error> {
+    pub fn pull(&self, branch: Option<&str>) -> Result<&Self, anyhow::Error> {
         let git_repo = self.open()?;
         let mut remote = git_repo.find_remote("origin")?;
+
+        let current_branch = self.current_branch()?;
+        let branch = match branch {
+            Some(branch) => branch,
+            None => current_branch.as_str(),
+        };
+
         let fetch_commit = fetch(&git_repo, &[branch], &mut remote)?;
-        merge(&git_repo, &branch, fetch_commit)?;
+        merge(&git_repo, branch, fetch_commit)?;
 
         Ok(self)
     }
 
-    pub fn fetch(&self, branch: &str) -> Result<&Self, anyhow::Error> {
+    pub fn fetch(&self, branch: Option<&str>) -> Result<&Self, anyhow::Error> {
         let git_repo = self.open()?;
         let mut remote = git_repo.find_remote("origin")?;
-        let fetch_commit = fetch(&git_repo, &[branch], &mut remote)?;
+        match branch {
+            Some(ref branch) => {
+                fetch(&git_repo, &[&branch], &mut remote)?;
+            },
+            None => {
+                let remote_refspecs = remote.fetch_refspecs()?;
+                let refspecs: Vec<&str> = remote_refspecs
+                    .iter()
+                    .flatten()
+                    .collect();
+                fetch(&git_repo, &refspecs, &mut remote)?;
+            }
+        }
 
         Ok(self)
     }
+
+    pub fn stash(&self) -> Result<&Self, git2::Error> {
+        let mut repo = self.open()?;
+
+        repo.stash_save(&repo.signature()?, "stash", Some(StashFlags::DEFAULT))?;
+
+        Ok(self)
+    }
+
+    pub fn stash_pop(&self) -> Result<&Self, git2::Error> {
+        let mut repo = self.open()?;
+
+        repo.stash_pop(0, None)?;
+
+        Ok(self)
+    }
+
 }
 
 fn fetch<'a>(
@@ -386,66 +415,4 @@ fn callbacks() -> RemoteCallbacks<'static> {
     });
 
     callbacks
-}
-
-pub fn scan(
-    directory: &Path,
-    depth: usize,
-    recurse: bool,
-) -> Result<Vec<(PathBuf, Repository)>, anyhow::Error> {
-    let mut directories = vec![];
-
-    if recurse {
-        directories = scan_directories(directory, depth);
-    } else {
-        let repo = scan_directory(directory)?;
-        directories.push(repo);
-    }
-
-    if directories.len() > 0 {
-        Ok(directories)
-    } else {
-        Err(anyhow!("No directories found"))
-    }
-}
-
-fn scan_directory(directory: &Path) -> Result<(PathBuf, Repository), anyhow::Error> {
-    match Repository::open(directory) {
-        Ok(repo) => {
-            info!("Found repo at {:?}", directory.file_name().unwrap());
-            Ok((directory.into(), repo))
-        }
-        Err(e) => {
-            trace!("No repo found at {:?}", directory.file_name().unwrap());
-            Err(anyhow!(GitError::Git(e)))
-        }
-    }
-}
-
-fn scan_directories(starting_point: &Path, depth: usize) -> Vec<(PathBuf, Repository)> {
-    WalkDir::new(starting_point)
-        .max_depth(depth)
-        .into_iter()
-        .filter_entry(|e| is_not_hidden(e))
-        .filter_map(|v| v.ok())
-        .map(|x| x.into_path())
-        .filter_map(|p| is_directory(p))
-        .flat_map(|y| scan_directory(&y))
-        .collect::<Vec<(PathBuf, Repository)>>()
-}
-
-fn is_not_hidden(entry: &DirEntry) -> bool {
-    entry
-        .file_name()
-        .to_str()
-        .map(|s| entry.depth() == 0 || !s.starts_with("."))
-        .unwrap_or(false)
-}
-
-fn is_directory(path: PathBuf) -> Option<PathBuf> {
-    if path.is_dir() {
-        Some(path)
-    } else {
-        None
-    }
 }
