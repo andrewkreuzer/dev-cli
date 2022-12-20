@@ -1,15 +1,18 @@
-use std::{path::PathBuf, fs::{File, self}};
 use env_logger::Target;
-use log::{warn, info, LevelFilter};
+use log::{info, warn, LevelFilter};
+use std::{
+    fs::{self, File},
+    path::PathBuf,
+};
 
 use clap::{Parser, Subcommand};
-use clap_verbosity_flag::{Verbosity, InfoLevel};
+use clap_verbosity_flag::{InfoLevel, Verbosity};
 
-use crate::scan::handle_scan_command;
-use super::repo::handle_repo_command;
-use super::repos::handle_repos_command;
 use super::git::handle_git_command;
 use super::github::handle_github_command;
+use super::repo::handle_repo_command;
+use super::repos::handle_repos_command;
+use crate::scan::handle_scan_command;
 use dev_cli::{config, yaml};
 
 #[derive(Parser)]
@@ -59,12 +62,12 @@ enum Commands {
     },
     Repo {
         #[clap(subcommand)]
-        cmd: Option<super::repo::RepoCommand>
+        cmd: Option<super::repo::RepoCommand>,
     },
     Repos {
         #[clap(subcommand)]
-        cmd: Option<super::repos::ReposCommand>
-    }
+        cmd: Option<super::repos::ReposCommand>,
+    },
 }
 
 pub async fn init() -> Result<(), anyhow::Error> {
@@ -104,14 +107,13 @@ pub async fn init() -> Result<(), anyhow::Error> {
         Some(Commands::Git { cmd }) => {
             handle_git_command(cmd, &mut config).await?;
         }
-        Some(Commands::Scan { directory, depth, recurse, add }) => {
-            handle_scan_command(
-                directory.clone(),
-                *depth,
-                *recurse,
-                *add,
-                &mut config
-            ).await?;
+        Some(Commands::Scan {
+            directory,
+            depth,
+            recurse,
+            add,
+        }) => {
+            handle_scan_command(directory.clone(), *depth, *recurse, *add, &mut config).await?;
         }
         Some(Commands::Yaml { cmd }) => {
             if let Some(YamlCommand::Update { file, target }) = cmd {
@@ -136,10 +138,7 @@ fn log(log_level: LevelFilter) -> Result<(), anyhow::Error> {
     if !log_file.is_file() {
         file = File::create(log_file)?;
     } else {
-        file = File::options()
-            .append(true)
-            .create(true)
-            .open(log_file)?;
+        file = File::options().append(true).create(true).open(log_file)?;
     }
 
     env_logger::Builder::new()

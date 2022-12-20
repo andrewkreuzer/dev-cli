@@ -3,12 +3,11 @@ use cynic::{http::ReqwestExt, QueryBuilder};
 
 use crate::github::client::GithubClient;
 use queries::{
-    IssueOrder, IssueOrderField, OrderDirection, PullRequest, PullRequestTitles, PullRequestTitlesArguments,
+    IssueOrder, IssueOrderField, OrderDirection, PullRequest, PullRequestTitles,
+    PullRequestTitlesArguments,
 };
 
-pub async fn run_query(
-    client: &GithubClient,
-) -> Result<Vec<PullRequest>, anyhow::Error> {
+pub async fn run_query(client: &GithubClient) -> Result<Vec<PullRequest>, anyhow::Error> {
     let query = build_query();
 
     let res = client.post().run_graphql(query).await?;
@@ -29,10 +28,11 @@ pub async fn run_query(
     res.data
         .and_then(|d| d.repository)
         .and_then(|r| {
-            r.pull_requests.nodes
-            .into_iter()
-            .collect::<Vec<PullRequest>>()
-            .into()
+            r.pull_requests
+                .nodes
+                .into_iter()
+                .collect::<Vec<PullRequest>>()
+                .into()
         })
         .ok_or(anyhow!("no pull requests returned from query"))
 }

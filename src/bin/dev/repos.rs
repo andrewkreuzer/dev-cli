@@ -13,23 +13,27 @@ pub enum ReposCommand {
         destination: String,
 
         #[clap(short, long)]
-        message: String
+        message: String,
     },
-    Update
+    Update,
 }
 
 pub async fn handle_repos_command(
     cmd: &Option<ReposCommand>,
-    config: &mut Config
+    config: &mut Config,
 ) -> Result<(), anyhow::Error> {
     match cmd {
-        Some(ReposCommand::Add { file, destination, message }) => {
+        Some(ReposCommand::Add {
+            file,
+            destination,
+            message,
+        }) => {
             for repo in config.get_repos() {
                 let to = match &repo.path {
                     Some(path) => Path::new(&path).join(destination),
                     None => {
                         warn!("{} does not have a path", repo.name);
-                        continue
+                        continue;
                     }
                 };
                 fs::copy(file, to)?;
@@ -42,11 +46,10 @@ pub async fn handle_repos_command(
             for repo in config.get_repos() {
                 if repo.url == None {
                     warn!("{} does not have a url", repo.name);
-                    continue
+                    continue;
                 }
 
-                repo.checkout("main")?
-                    .pull("main")?;
+                repo.checkout("main")?.pull("main")?;
             }
         }
         None => (),

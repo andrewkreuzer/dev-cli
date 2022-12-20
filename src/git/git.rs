@@ -1,7 +1,7 @@
+use log::{info, trace, warn};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::{env, error::Error, fmt, io};
-use log::{info, warn, trace};
 
 use anyhow::{anyhow, bail};
 use git2::{Cred, RemoteCallbacks, Repository, StashFlags};
@@ -84,7 +84,7 @@ impl GitRepository {
 
         let org = match &self.org {
             Some(org) => org.to_string(),
-            None => "".to_string()
+            None => "".to_string(),
         };
 
         info!("Cloning {} in Org: {}", self.name, org);
@@ -95,7 +95,7 @@ impl GitRepository {
             builder.clone(self.url.as_ref().unwrap(), &path)?;
             self.path = match path.to_str() {
                 Some(p) => Some(p.to_string()),
-                None => None
+                None => None,
             };
         }
 
@@ -109,10 +109,7 @@ impl GitRepository {
         let cb = &mut |path: &Path, _matched_spec: &[u8]| -> i32 {
             let status = repo.status_file(path).unwrap();
 
-            if status.contains(
-                git2::Status::WT_MODIFIED)
-                || status.contains(git2::Status::WT_NEW
-            ) {
+            if status.contains(git2::Status::WT_MODIFIED) || status.contains(git2::Status::WT_NEW) {
                 info!("add '{}'", path.display());
                 0
             } else {
@@ -135,11 +132,7 @@ impl GitRepository {
     pub fn stash(&self) -> Result<&Self, git2::Error> {
         let mut repo = self.open()?;
 
-        repo.stash_save(
-            &repo.signature()?,
-            "stash",
-            Some(StashFlags::DEFAULT),
-        )?;
+        repo.stash_save(&repo.signature()?, "stash", Some(StashFlags::DEFAULT))?;
 
         Ok(self)
     }
@@ -205,7 +198,7 @@ impl GitRepository {
 
         let refname = match head.name() {
             Some(name) => name,
-            None => bail!("head has no name")
+            None => bail!("head has no name"),
         };
 
         let mut origin = git_repo.find_remote("origin")?;
@@ -219,14 +212,22 @@ impl GitRepository {
     pub fn pull(&self, branch: &str) -> Result<&Self, anyhow::Error> {
         let git_repo = self.open()?;
         let mut remote = git_repo.find_remote("origin")?;
-        let fetch_commit = do_fetch(&git_repo, &[branch], &mut remote)?;
-        do_merge(&git_repo, &branch, fetch_commit)?;
+        let fetch_commit = fetch(&git_repo, &[branch], &mut remote)?;
+        merge(&git_repo, &branch, fetch_commit)?;
+
+        Ok(self)
+    }
+
+    pub fn fetch(&self, branch: &str) -> Result<&Self, anyhow::Error> {
+        let git_repo = self.open()?;
+        let mut remote = git_repo.find_remote("origin")?;
+        let fetch_commit = fetch(&git_repo, &[branch], &mut remote)?;
 
         Ok(self)
     }
 }
 
-fn do_fetch<'a>(
+fn fetch<'a>(
     repo: &'a git2::Repository,
     refs: &[&str],
     remote: &'a mut git2::Remote,
@@ -273,13 +274,7 @@ fn fast_forward(
     println!("{}", msg);
     lb.set_target(rc.id(), &msg)?;
     repo.set_head(&name)?;
-    repo.checkout_head(Some(
-        git2::build::CheckoutBuilder::default()
-            // For some reason the force is required to make the working directory actually get updated
-            // I suspect we should be adding some logic to handle dirty working directory states
-            // but this is just an example so maybe not.
-            .force(),
-    ))?;
+    repo.checkout_head(Some(git2::build::CheckoutBuilder::default().force()))?;
 
     Ok(())
 }
@@ -319,14 +314,14 @@ fn normal_merge(
     Ok(())
 }
 
-fn do_merge<'a>(
+fn merge<'a>(
     repo: &'a Repository,
     remote_branch: &str,
     fetch_commit: git2::AnnotatedCommit<'a>,
 ) -> Result<(), git2::Error> {
-    let analysis = repo.merge_analysis(&[&fetch_commit])?;
+    let (analysis, _preference) = repo.merge_analysis(&[&fetch_commit])?;
 
-    if analysis.0.is_fast_forward() {
+    if analysis.is_fast_forward() {
         println!("Doing a fast forward");
         let refname = format!("refs/heads/{}", remote_branch);
         match repo.find_reference(&refname) {
@@ -349,7 +344,7 @@ fn do_merge<'a>(
                 ))?;
             }
         };
-    } else if analysis.0.is_normal() {
+    } else if analysis.is_normal() {
         let head_commit = repo.reference_to_annotated_commit(&repo.head()?)?;
         normal_merge(&repo, &head_commit, &fetch_commit)?;
     } else {
@@ -385,10 +380,7 @@ fn callbacks() -> RemoteCallbacks<'static> {
         Cred::ssh_key(
             username_from_url.unwrap(),
             None,
-            Path::new(
-                &format!("{}/.ssh/id_ed25519",
-                    env::var("HOME").unwrap())
-            ),
+            Path::new(&format!("{}/.ssh/id_ed25519", env::var("HOME").unwrap())),
             None,
         )
     });
@@ -417,9 +409,7 @@ pub fn scan(
     }
 }
 
-fn scan_directory(
-    directory: &Path
-) -> Result<(PathBuf, Repository), anyhow::Error> {
+fn scan_directory(directory: &Path) -> Result<(PathBuf, Repository), anyhow::Error> {
     match Repository::open(directory) {
         Ok(repo) => {
             info!("Found repo at {:?}", directory.file_name().unwrap());

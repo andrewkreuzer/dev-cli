@@ -1,9 +1,6 @@
 use clap::Subcommand;
 
-use dev_cli::{
-    config::Config,
-    git,
-};
+use dev_cli::{config::Config, git};
 
 #[derive(Subcommand)]
 pub enum RepoCommand {
@@ -20,7 +17,7 @@ pub enum RepoCommand {
 
 pub async fn handle_repo_command(
     cmd: &Option<RepoCommand>,
-    config: &mut Config
+    config: &mut Config,
 ) -> Result<(), anyhow::Error> {
     match cmd {
         Some(RepoCommand::Clone { repo, path }) => {

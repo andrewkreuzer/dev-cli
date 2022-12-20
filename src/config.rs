@@ -1,15 +1,12 @@
+use log::{debug, warn};
 use std::{
-    collections::{HashMap, hash_map::Values},
-    error,
-    env,
-    fmt,
-    fs,
+    collections::{hash_map::Values, HashMap},
+    env, error, fmt, fs,
     fs::File,
     io,
     io::prelude::*,
     path::PathBuf,
 };
-use log::{debug, warn};
 
 use dirs;
 use serde::{Deserialize, Serialize};
@@ -72,16 +69,14 @@ impl Config {
             }
         }
 
-        Config {
-            repos,
-        }
+        Config { repos }
     }
 
     pub fn get_repo(&self, repo: &str) -> Option<&GitRepository> {
         self.repos.get(repo)
     }
 
-    pub fn get_repos(&self) ->  Values<String, GitRepository> {
+    pub fn get_repos(&self) -> Values<String, GitRepository> {
         self.repos.values()
     }
 
@@ -91,24 +86,16 @@ impl Config {
 
     pub fn update_repo(&mut self, repo: GitRepository) -> Result<(), Error> {
         self.repos.insert(repo.name.clone(), repo);
-        let directory = env::current_dir()
-            .expect("error getting current directory");
+        let directory = env::current_dir().expect("error getting current directory");
 
-        write_file(
-            &PathBuf::new().join(directory).join("dev.toml"),
-            self
-        )?;
+        write_file(&PathBuf::new().join(directory).join("dev.toml"), self)?;
 
         Ok(())
     }
     pub fn update(&self) -> Result<(), Error> {
-        let directory = env::current_dir()
-            .expect("error getting current directory");
+        let directory = env::current_dir().expect("error getting current directory");
 
-        write_file(
-            &PathBuf::new().join(directory).join("dev.toml"),
-            self
-        )?;
+        write_file(&PathBuf::new().join(directory).join("dev.toml"), self)?;
 
         Ok(())
     }
@@ -116,7 +103,7 @@ impl Config {
     pub fn add_repo(
         &mut self,
         name: Option<String>,
-        git_repo: &GitRepository
+        git_repo: &GitRepository,
     ) -> Result<&Self, anyhow::Error> {
         for (name, repo) in self.repos.iter() {
             if name == &git_repo.name {
@@ -129,16 +116,11 @@ impl Config {
             None => git_repo.name.clone(),
         };
 
-        self.repos
-            .insert(name, git_repo.to_owned());
+        self.repos.insert(name, git_repo.to_owned());
 
-        let directory = env::current_dir()
-            .expect("error getting current directory");
+        let directory = env::current_dir().expect("error getting current directory");
 
-        write_file(
-            &PathBuf::new().join(directory).join("dev.toml"),
-            self
-        )?;
+        write_file(&PathBuf::new().join(directory).join("dev.toml"), self)?;
 
         Ok(self)
     }
@@ -171,10 +153,7 @@ pub fn create_new(filepath: &PathBuf) -> Result<Config, Error> {
 //       explicit about the fact that comments, formatting, and a
 //       bunch of random shit may happen
 fn write_file(filepath: &PathBuf, config: &Config) -> Result<Config, Error> {
-    let file = File::options()
-        .write(true)
-        .truncate(true)
-        .open(filepath);
+    let file = File::options().write(true).truncate(true).open(filepath);
 
     let toml_str = toml::to_string(&config)?;
     file?.write_all(toml_str.as_bytes())?;
@@ -196,11 +175,10 @@ fn read_file(filepath: &PathBuf) -> Result<String, io::Error> {
         file.read_to_string(&mut content)?;
 
         Ok(content)
-
     } else {
         Err(io::Error::new(
             io::ErrorKind::NotFound,
-            format!("{} not found", filepath.to_str().unwrap())
+            format!("{} not found", filepath.to_str().unwrap()),
         ))
     }
 }
@@ -208,14 +186,12 @@ fn read_file(filepath: &PathBuf) -> Result<String, io::Error> {
 pub fn load(filepath: PathBuf) -> Result<Config, Error> {
     match read_file(&filepath) {
         Ok(content) => toml_deserialize(content),
-        Err(err) => {
-            match err.kind() {
-                io::ErrorKind::NotFound => {
-                    debug!("No config found in this directory, using default settings");
-                    Ok(Config::new(None))
-                }
-                _ => Err(Error::Io(err))
+        Err(err) => match err.kind() {
+            io::ErrorKind::NotFound => {
+                debug!("No config found in this directory, using default settings");
+                Ok(Config::new(None))
             }
-        }
+            _ => Err(Error::Io(err)),
+        },
     }
 }

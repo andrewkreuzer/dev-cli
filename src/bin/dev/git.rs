@@ -15,7 +15,7 @@ pub enum GitCommand {
         repo: Option<String>,
 
         #[clap(short, long)]
-        message: String
+        message: String,
     },
     Push {
         repo: Option<String>,
@@ -32,8 +32,7 @@ pub async fn handle_git_command(
 ) -> Result<(), anyhow::Error> {
     match cmd {
         Some(GitCommand::Add { repo, files }) => {
-            let directory = env::current_dir()
-                .expect("error getting current directory");
+            let directory = env::current_dir().expect("error getting current directory");
 
             let repo = match repo {
                 Some(repo) => repo.clone(),
@@ -42,12 +41,11 @@ pub async fn handle_git_command(
 
             match config.get_repo(&repo) {
                 Some(git_repo) => git_repo.add(files.to_vec(), false)?,
-                None => bail!("Repo not in config")
+                None => bail!("Repo not in config"),
             };
         }
         Some(GitCommand::Commit { repo, message }) => {
-            let directory = env::current_dir()
-                .expect("error getting current directory");
+            let directory = env::current_dir().expect("error getting current directory");
 
             let repo = match repo {
                 Some(repo) => repo.to_string(),
@@ -57,9 +55,7 @@ pub async fn handle_git_command(
             config.get_repo(&repo).unwrap().commit(&message)?;
         }
         Some(GitCommand::Push { repo }) => {
-            // TODO: this will fail miserably because it's the absolue path
-            let directory = env::current_dir()
-                .expect("error getting current directory");
+            let directory = env::current_dir().expect("error getting current directory");
 
             let repo = match repo {
                 Some(repo) => repo.to_string(),
@@ -69,8 +65,7 @@ pub async fn handle_git_command(
             config.get_repo(&repo).unwrap().push()?;
         }
         Some(GitCommand::Pull { repo, branch }) => {
-            let directory = env::current_dir()
-                .expect("error getting current directory");
+            let directory = env::current_dir().expect("error getting current directory");
 
             let repo = match repo {
                 Some(repo) => repo.to_string(),

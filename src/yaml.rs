@@ -1,7 +1,7 @@
+use log::info;
 use std::fs;
 use std::io::prelude::*;
 use std::path::PathBuf;
-use log::info;
 
 use serde_yaml::Value;
 

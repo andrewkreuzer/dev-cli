@@ -1,4 +1,4 @@
-use log::{info, error};
+use log::{error, info};
 
 use dev_cli::{config::Config, github::client};
 

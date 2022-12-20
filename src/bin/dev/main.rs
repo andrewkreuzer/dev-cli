@@ -1,8 +1,8 @@
 use log::error;
 
+pub mod clap;
 pub mod git;
 pub mod github;
-pub mod clap;
 pub mod repo;
 pub mod repos;
 pub mod scan;

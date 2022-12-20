@@ -1,33 +1,34 @@
-use std::{path::PathBuf, path::Path, env};
+use std::{env, path::Path, path::PathBuf};
 
 use anyhow::bail;
 use regex::Regex;
 
-use dev_cli::{git::{self, GitRepository}, config};
+use dev_cli::{
+    config,
+    git::{self, GitRepository},
+};
 
 pub async fn handle_scan_command(
     directory: Option<PathBuf>,
     depth: usize,
     recurse: bool,
     add: bool,
-    config: &mut config::Config
+    config: &mut config::Config,
 ) -> Result<(), anyhow::Error> {
-    let cwd = env::current_dir()
-        .expect("error getting current directory");
+    let cwd = env::current_dir().expect("error getting current directory");
 
     let directory = match directory {
         Some(dir) => dir,
-        None => cwd.clone()
+        None => cwd.clone(),
     };
 
     for (path, repo) in git::scan(&directory, depth, recurse)?.into_iter() {
-
         // default to origin remote for now
         let mut url = None;
         if let Ok(origin) = repo.find_remote("origin") {
             url = match origin.url() {
                 Some(url) => Some(url.to_string()),
-                None => None
+                None => None,
             };
         }
 
@@ -44,16 +45,13 @@ pub async fn handle_scan_command(
             Err(e) => bail!(e),
         };
 
-
         let (name, org) = match &url {
             Some(url) => parse_remote_url(url),
-            None => {
-                (dir, None)
-            }
+            None => (dir, None),
         };
 
         if add {
-            let git_repo = GitRepository{
+            let git_repo = GitRepository {
                 name: name.clone(),
                 org,
                 url,
@@ -77,9 +75,7 @@ fn is_root_repo(p: &Path, file_path: &PathBuf, cwd: &PathBuf) -> Option<String> 
 }
 
 fn parse_remote_url(url: &str) -> (String, Option<String>) {
-    let re = Regex::new(
-        r"(https|git)(://)?(@?)(\w+).com(:|/)(\w+)/([\w-]+)(.git)?"
-    ).unwrap();
+    let re = Regex::new(r"(https|git)(://)?(@?)(\w+).com(:|/)(\w+)/([\w-]+)(.git)?").unwrap();
     let caps = re.captures(&url).unwrap();
     let org = caps.get(6).unwrap().as_str();
     let name = caps.get(7).unwrap().as_str();
