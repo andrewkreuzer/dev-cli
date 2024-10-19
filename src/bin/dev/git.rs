@@ -4,9 +4,10 @@ use anyhow::bail;
 use clap::Subcommand;
 
 use dev_cli::config::Config;
+use crate::clap::Command;
 
 #[derive(Subcommand)]
-pub enum GitCommand {
+pub enum Git {
     Test,
     Add {
         repo: Option<String>,
@@ -31,10 +32,8 @@ pub enum GitCommand {
     },
 }
 
-pub async fn handle_git_command(
-    cmd: &Option<GitCommand>,
-    config: &mut Config,
-) -> Result<(), anyhow::Error> {
+impl Command for Git {
+    async fn run(&self, config: &mut Config) -> Result<(), anyhow::Error> {
     let cwd_pathbuf = env::current_dir()?;
 
     let cwd = cwd_pathbuf
@@ -42,16 +41,16 @@ pub async fn handle_git_command(
         .and_then(|d| d.to_str())
         .expect("error getting current working directory");
 
-    match cmd {
-        Some(GitCommand::Test) => {
+    match self {
+        Git::Test => {
             match config.get_repo("graphql-tests") {
                 Some(repo) => {
-                    println!("{}", repo.current_branch()?);
+                    println!("{}", repo.default_branch()?);
                 }
                 None => bail!("repo not found")
             }
         }
-        Some(GitCommand::Add { repo, files }) => {
+        Git::Add { repo, files } => {
             let repo = match repo {
                 Some(repo) => repo,
                 None => cwd,
@@ -62,18 +61,18 @@ pub async fn handle_git_command(
                 None => bail!("Repo not in config"),
             };
         }
-        Some(GitCommand::Commit { repo, message }) => {
+        Git::Commit { repo, message } => {
             let repo = match repo {
                 Some(repo) => repo,
                 None => cwd,
             };
 
             match config.get_repo(repo) {
-                Some(git_repo) => git_repo.commit(&message)?,
+                Some(git_repo) => git_repo.commit(message)?,
                 None => bail!("Repo not in config"),
             };
         }
-        Some(GitCommand::Push { repo }) => {
+        Git::Push { repo } => {
             let repo = match repo {
                 Some(repo) => repo,
                 None => cwd,
@@ -84,7 +83,7 @@ pub async fn handle_git_command(
                 None => bail!("Repo not in config"),
             };
        }
-        Some(GitCommand::Pull { repo, branch }) => {
+        Git::Pull { repo, branch } => {
             let repo = match repo {
                 Some(repo) => repo,
                 None => cwd,
@@ -100,24 +99,21 @@ pub async fn handle_git_command(
                 None => bail!("Repo not in config"),
             };
         }
-        Some(GitCommand::Fetch { repo, branch }) => {
+        Git::Fetch { repo, branch } => {
             let repo = match repo {
                 Some(repo) => repo,
                 None => cwd,
             };
 
-            let branch = match branch {
-                Some(branch) => Some(branch.as_str()),
-                None => None,
-            };
+            let branch = branch.as_ref().map(|branch| branch.as_str());
 
             match config.get_repo(repo) {
                 Some(git_repo) => git_repo.fetch(branch)?,
                 None => bail!("Repo not in config"),
             };
         }
-        None => (),
     }
 
     Ok(())
+    }
 }

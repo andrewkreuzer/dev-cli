@@ -11,7 +11,7 @@ use std::{
 use dirs;
 use serde::{Deserialize, Serialize};
 
-use crate::git::GitRepository;
+use crate::{git::GitRepository, lang::Language};
 
 #[derive(Debug)]
 pub enum Error {
@@ -55,13 +55,24 @@ impl From<toml::ser::Error> for Error {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct RunRef {
+    pub file: Option<String>,
+    pub command: Option<String>,
+    pub filetype: Option<Language>,
+    pub path: Option<PathBuf>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
+    filepath: Option<PathBuf>,
     repos: HashMap<String, GitRepository>,
+    run: HashMap<String, RunRef>,
 }
 
 impl Config {
     pub fn new(repositories: Option<Vec<GitRepository>>) -> Self {
         let mut repos = HashMap::new();
+        let run = HashMap::new();
 
         if let Some(repositories) = repositories {
             for r in repositories.into_iter() {
@@ -69,11 +80,27 @@ impl Config {
             }
         }
 
-        Config { repos }
+        Config {
+            repos,
+            run,
+            filepath: None,
+        }
+    }
+
+    pub fn set_filepath(&mut self, filepath: PathBuf) {
+        self.filepath = Some(filepath);
+    }
+
+    pub fn get_filepath(&self) -> &PathBuf {
+        self.filepath.as_ref().unwrap()
     }
 
     pub fn get_repo(&self, repo: &str) -> Option<&GitRepository> {
         self.repos.get(repo)
+    }
+
+    pub fn get_repo_map(&self) -> &HashMap<String, GitRepository> {
+        &self.repos
     }
 
     pub fn get_repos(&self) -> Values<String, GitRepository> {
@@ -140,11 +167,49 @@ impl Config {
 
         Ok(())
     }
+
+    pub fn get_run(&self, name: &str) -> Option<&RunRef> {
+        self.run.get(name)
+    }
 }
 
 pub fn create_new(filepath: &PathBuf) -> Result<Config, Error> {
     let _file = File::create(filepath)?;
     write_file(filepath, &Config::new(None))
+}
+
+pub fn load(filepath: PathBuf) -> Result<Config, Error> {
+    match read_file(&filepath) {
+        Ok(content) => match toml::from_str::<Config>(&content) {
+            Ok(mut config) => {
+                config.set_filepath(filepath);
+                Ok(config)
+            }
+            Err(e) => Err(Error::TomlDe(e)),
+        },
+        Err(err) => match err.kind() {
+            io::ErrorKind::NotFound => {
+                debug!("No config found in this directory, using default settings");
+                Ok(Config::new(None))
+            }
+            _ => Err(Error::Io(err)),
+        },
+    }
+}
+
+fn read_file(filepath: &PathBuf) -> Result<String, io::Error> {
+    if filepath.is_file() {
+        let mut file = fs::File::open(filepath)?;
+        let mut content = String::new();
+        file.read_to_string(&mut content)?;
+
+        Ok(content)
+    } else {
+        Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            format!("{} not found", filepath.to_str().unwrap()),
+        ))
+    }
 }
 
 // TODO: should we dissolve the idea of writing back to the config
@@ -159,39 +224,4 @@ fn write_file(filepath: &PathBuf, config: &Config) -> Result<Config, Error> {
     file?.write_all(toml_str.as_bytes())?;
 
     Ok(config.to_owned())
-}
-
-fn toml_deserialize(content: String) -> Result<Config, Error> {
-    match toml::from_str(&content) {
-        Ok(config) => Ok(config),
-        Err(e) => Err(Error::TomlDe(e)),
-    }
-}
-
-fn read_file(filepath: &PathBuf) -> Result<String, io::Error> {
-    if filepath.is_file() {
-        let mut file = fs::File::open(&filepath)?;
-        let mut content = String::new();
-        file.read_to_string(&mut content)?;
-
-        Ok(content)
-    } else {
-        Err(io::Error::new(
-            io::ErrorKind::NotFound,
-            format!("{} not found", filepath.to_str().unwrap()),
-        ))
-    }
-}
-
-pub fn load(filepath: PathBuf) -> Result<Config, Error> {
-    match read_file(&filepath) {
-        Ok(content) => toml_deserialize(content),
-        Err(err) => match err.kind() {
-            io::ErrorKind::NotFound => {
-                debug!("No config found in this directory, using default settings");
-                Ok(Config::new(None))
-            }
-            _ => Err(Error::Io(err)),
-        },
-    }
 }

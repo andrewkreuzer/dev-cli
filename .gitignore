@@ -1,4 +1,6 @@
 /target
+.direnv
 .env
 tests
 graphql/github.graphql
+result

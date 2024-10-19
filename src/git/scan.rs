@@ -21,10 +21,9 @@ pub fn run(
         directories.push(repo);
     }
 
-    if directories.len() > 0 {
-        Ok(directories)
-    } else {
-        Err(anyhow!("No directories found"))
+    match !directories.is_empty() {
+        true => Ok(directories),
+        false => Err(anyhow!("No directories found")),
     }
 }
 
@@ -45,10 +44,10 @@ fn scan_directories(starting_point: &Path, depth: usize) -> Vec<(PathBuf, Reposi
     WalkDir::new(starting_point)
         .max_depth(depth)
         .into_iter()
-        .filter_entry(|e| is_not_hidden(e))
+        .filter_entry(is_not_hidden)
         .filter_map(|v| v.ok())
         .map(|x| x.into_path())
-        .filter_map(|p| is_directory(p))
+        .filter_map(|p| if p.is_dir() { Some(p) } else { None })
         .flat_map(|y| scan_directory(&y))
         .collect::<Vec<(PathBuf, Repository)>>()
 }
@@ -59,12 +58,4 @@ fn is_not_hidden(entry: &DirEntry) -> bool {
         .to_str()
         .map(|s| entry.depth() == 0 || !s.starts_with("."))
         .unwrap_or(false)
-}
-
-fn is_directory(path: PathBuf) -> Option<PathBuf> {
-    if path.is_dir() {
-        Some(path)
-    } else {
-        None
-    }
 }

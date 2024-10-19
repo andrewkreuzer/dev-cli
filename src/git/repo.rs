@@ -1,4 +1,4 @@
-use log::{info, warn};
+use log::{error, info, warn};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::{env, error::Error, fmt, io};
@@ -52,12 +52,14 @@ impl GitRepository {
             bail!("repo name must consist of {{org}}/{{repo}}");
         }
 
-        let org = Some(names.get(0).unwrap().to_string());
+        let org = Some(
+            names
+                .first()
+                .ok_or(anyhow!("failed to get org name"))?
+                .to_string(),
+        );
         let name = names.get(1).unwrap().to_string();
-        let path = match path {
-            Some(path) => Some(path.to_string()),
-            None => None,
-        };
+        let path = path.map(|path| path.to_string());
 
         Ok(GitRepository {
             org,
@@ -78,10 +80,24 @@ impl GitRepository {
         let git_repo = self.open()?;
         let head = git_repo.head()?;
 
-        head
-            .shorthand()
-            .and_then(|s| Some(s.to_string()))
+        head.shorthand()
+            .map(|s| s.to_string())
             .ok_or(anyhow!("head has no name"))
+    }
+
+    pub fn default_branch(&self) -> Result<String, git2::Error> {
+        let git_repo = self.open()?;
+        let mut remote = git_repo.find_remote("origin")?;
+        remote.connect_auth(git2::Direction::Fetch, Some(callbacks()), None)?;
+        let default_branch = remote.default_branch()?;
+        remote.disconnect()?;
+
+        let default_branch = match default_branch.as_str() {
+            Some(branch) => branch,
+            None => return Err(git2::Error::from_str("no default branch")),
+        };
+
+        Ok(default_branch.split("/").last().unwrap().to_string())
     }
 
     pub fn remote(&self) -> Result<String, git2::Error> {
@@ -100,20 +116,17 @@ impl GitRepository {
         builder.fetch_options(fo);
 
         let org = match &self.org {
-            Some(org) => org.to_string(),
-            None => "".to_string(),
+            Some(org) => org,
+            None => "",
         };
 
         info!("Cloning {} in Org: {}", self.name, org);
-        let path = PathBuf::new().join(&format!("{}/{}", path, self.name));
+        let path = PathBuf::new().join(format!("{}/{}", path, self.name));
         if path.exists() {
             warn!("{} already exists", path.to_str().unwrap());
         } else {
             builder.clone(self.url.as_ref().unwrap(), &path)?;
-            self.path = match path.to_str() {
-                Some(p) => Some(p.to_string()),
-                None => None,
-            };
+            self.path = path.to_str().map(|p| p.to_string());
         }
 
         Ok(self)
@@ -126,15 +139,36 @@ impl GitRepository {
         Ok(self)
     }
 
-    pub fn checkout(&self, branch: &str) -> Result<&Self, git2::Error> {
+    pub fn checkout_default(&self) -> Result<&Self, git2::Error> {
         let repo = self.open()?;
         let mut cb = git2::build::CheckoutBuilder::new();
         cb.force();
 
-        let obj = repo.revparse_single(branch)?;
+        repo.checkout_head(Some(&mut cb))?;
+
+        Ok(self)
+    }
+
+    pub fn checkout(&self, branch: &str) -> Result<&Self, anyhow::Error> {
+        let repo = self.open()?;
+        let mut cb = git2::build::CheckoutBuilder::new();
+        cb.force();
+
+        let obj = match repo.revparse_single(branch) {
+            Ok(obj) => obj,
+            Err(e) => {
+                println!("branch {} not found", branch);
+                return Err(anyhow!("Unable to revparse: {}, {}", branch, e));
+            }
+        };
+
         repo.checkout_tree(&obj, Some(&mut cb))?;
         let refname = format!("refs/heads/{}", branch);
-        repo.set_head(&refname)?;
+
+        if let Err(e) = repo.set_head(&refname) {
+            println!("Failed to set head to: {}", branch);
+            return Err(anyhow!("Failed to set head to {}: {}", branch, e));
+        }
 
         Ok(self)
     }
@@ -213,7 +247,10 @@ impl GitRepository {
         };
 
         let fetch_commit = fetch(&git_repo, &[branch], &mut remote)?;
-        merge(&git_repo, branch, fetch_commit)?;
+
+        if let Err(e) = merge(&git_repo, branch, fetch_commit) {
+            error!("Failed to merge {}: {}", self.name, e);
+        }
 
         Ok(self)
     }
@@ -222,15 +259,12 @@ impl GitRepository {
         let git_repo = self.open()?;
         let mut remote = git_repo.find_remote("origin")?;
         match branch {
-            Some(ref branch) => {
-                fetch(&git_repo, &[&branch], &mut remote)?;
-            },
+            Some(branch) => {
+                fetch(&git_repo, &[branch], &mut remote)?;
+            }
             None => {
                 let remote_refspecs = remote.fetch_refspecs()?;
-                let refspecs: Vec<&str> = remote_refspecs
-                    .iter()
-                    .flatten()
-                    .collect();
+                let refspecs: Vec<&str> = remote_refspecs.iter().flatten().collect();
                 fetch(&git_repo, &refspecs, &mut remote)?;
             }
         }
@@ -254,6 +288,29 @@ impl GitRepository {
         Ok(self)
     }
 
+    pub fn rev_parse(&self, rev: &str) -> Result<String, anyhow::Error> {
+        let repo = self.open()?;
+        let revspec = repo.revparse(rev)?;
+
+        if revspec.mode().contains(git2::RevparseMode::SINGLE) {
+            println!("{}", revspec.from().unwrap().id());
+        } else if revspec.mode().contains(git2::RevparseMode::RANGE) {
+            let to = revspec.to().unwrap();
+            let from = revspec.from().unwrap();
+            println!("{}", to.id());
+
+            if revspec.mode().contains(git2::RevparseMode::MERGE_BASE) {
+                let base = repo.merge_base(from.id(), to.id())?;
+                println!("{}", base);
+            }
+
+            println!("^{}", from.id());
+        } else {
+            return Err(anyhow!("invalid results from revparse"));
+        }
+
+        Ok(revspec.from().unwrap().id().to_string())
+    }
 }
 
 fn fetch<'a>(
@@ -287,7 +344,7 @@ fn fetch<'a>(
     }
 
     let fetch_head = repo.find_reference("FETCH_HEAD")?;
-    Ok(repo.reference_to_annotated_commit(&fetch_head)?)
+    repo.reference_to_annotated_commit(&fetch_head)
 }
 
 fn fast_forward(
@@ -375,7 +432,7 @@ fn merge<'a>(
         };
     } else if analysis.is_normal() {
         let head_commit = repo.reference_to_annotated_commit(&repo.head()?)?;
-        normal_merge(&repo, &head_commit, &fetch_commit)?;
+        normal_merge(repo, &head_commit, &fetch_commit)?;
     } else {
         println!("Nothing to do...");
     }

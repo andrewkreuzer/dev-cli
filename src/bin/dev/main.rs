@@ -1,15 +1,21 @@
+use std::process::exit;
+
 use log::error;
 
-pub mod clap;
-pub mod git;
-pub mod github;
-pub mod repo;
-pub mod repos;
-pub mod scan;
+mod clap;
+mod init;
+mod git;
+mod github;
+mod repo;
+mod run;
+mod scan;
+mod shell;
+mod yaml;
 
 #[tokio::main]
 async fn main() {
     if let Err(e) = clap::init().await {
-        error!("{e}")
+        error!("{:?}", e);
+        exit(1);
     }
 }

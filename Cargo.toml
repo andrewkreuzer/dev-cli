@@ -3,24 +3,34 @@ name = "dev-cli"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+default = ["python", "lua"]
+javascript =["dep:v8", "dep:serde_v8"]
+lua = ["dep:mlua"]
+python = ["dep:pyo3"]
+github = ["dep:cynic", "dep:reqwest"]
 
 [dependencies]
 anyhow = "1.0"
 clap = { version = "^4.0", features = ["derive"] }
 clap-verbosity-flag = "^2.0.0"
-cynic = { version = "^2", features = ["reqwest", "http-reqwest"] }
+cynic = { version = "^3", features = ["reqwest", "http-reqwest"], optional = true }
 chrono = { version = "^0.4", features = ["serde"] }
 dirs = "4.0.0"
 env_logger = "^0.9"
-git2 = "0.15"
+git2 = "^0.19"
 log = "^0.4"
 prettytable-rs = "^0.7"
 regex = "^1.7"
-reqwest = { version = "^0.11", features = ["json"] }
+reqwest = { version = "^0.12", features = ["json"], optional = true }
 serde = { version = "^1.0", features = ["derive"] }
-serde_yaml = "0.9"
+serde_yaml = "^0.9"
 serde_json = "1.0"
-tokio = { version = "1", features = ["full"] }
-toml = "0.4.2"
-walkdir = "2.3.2"
+tokio = { version = "^1", features = ["full"] }
+toml = "^0.8.19"
+walkdir = "^2.5"
+pyo3 = { version = "0.22.2", features = ["serde"], optional = true}
+serde_v8 = { version = "0.220.0", optional = true }
+v8 = { version = "^0.106.0", optional = true }
+mlua = { version = "0.9.9", features = ["serialize", "async", "send", "lua51" ], optional = true }
+thiserror = "1.0.64"

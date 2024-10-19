@@ -1,22 +1,32 @@
-use env_logger::Target;
-use log::{info, warn, LevelFilter};
 use std::{
+    borrow::BorrowMut,
     fs::{self, File},
     path::PathBuf,
 };
 
+use env_logger::Target;
+use log::LevelFilter;
+
 use clap::{Parser, Subcommand};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
 
-use super::git::handle_git_command;
-use super::github::handle_github_command;
-use super::repo::handle_repo_command;
-use super::repos::handle_repos_command;
-use crate::scan::handle_scan_command;
-use dev_cli::{config, yaml};
+use dev_cli::config;
+use crate::{
+    git::Git,
+    github::Github,
+    init::Init,
+    repo::{Repo, Repos},
+    run::Run,
+    scan::Scan,
+    shell::Shell,
+    yaml::Yaml,
+};
+
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
+#[command(subcommand_required = true)]
+#[command(arg_required_else_help = true)]
 struct Cli {
     #[clap(flatten)]
     verbose: Verbosity<InfoLevel>,
@@ -28,101 +38,52 @@ struct Cli {
     command: Option<Commands>,
 }
 
-#[derive(Subcommand)]
-enum YamlCommand {
-    Update { file: String, target: String },
+pub trait Command {
+    async fn run(&self, config: &mut config::Config) -> Result<(), anyhow::Error>;
 }
 
 #[derive(Subcommand)]
+#[command(arg_required_else_help = true)]
 enum Commands {
-    Init {
-        #[clap(short, long)]
-        global: bool,
-    },
-    Git {
-        #[clap(subcommand)]
-        cmd: Option<super::git::GitCommand>,
-    },
-    Github,
-    Scan {
-        directory: Option<PathBuf>,
-
-        #[clap(short, long, default_value = "1")]
-        depth: usize,
-
-        #[clap(short, long)]
-        recurse: bool,
-
-        #[clap(short, long)]
-        add: bool,
-    },
-    Yaml {
-        #[clap(subcommand)]
-        cmd: Option<YamlCommand>,
-    },
-    Repo {
-        #[clap(subcommand)]
-        cmd: Option<super::repo::RepoCommand>,
-    },
-    Repos {
-        #[clap(subcommand)]
-        cmd: Option<super::repos::ReposCommand>,
-    },
+    Init(Init),
+    #[clap(subcommand)]
+    Git(Git),
+    Github(Github),
+    Scan(Scan),
+    #[clap(subcommand)]
+    Yaml(Yaml),
+    #[clap(subcommand)]
+    Repo(Repo),
+    #[clap(subcommand)]
+    Repos(Repos),
+    Run(Run),
+    Shell(Shell),
 }
 
 pub async fn init() -> Result<(), anyhow::Error> {
     let cli = Cli::parse();
     log(cli.verbose.log_level_filter())?;
 
-    let config_path: PathBuf = match cli.config.as_deref() {
+    let config_path: PathBuf = match cli.config {
         Some(path) => path.to_path_buf(),
         None => PathBuf::new().join("dev.toml"),
     };
 
     let mut config = config::load(config_path)?;
-
-    match &cli.command {
-        Some(Commands::Init { global }) => {
-            let path = PathBuf::new().join("dev.toml");
-            if !path.exists() {
-                info!("Creating new config");
-                config::create_new(&path)?;
-            } else {
-                warn!("Local config already exists");
-            }
-
-            if *global {
-                config.save_global()?
-            }
+    let cfg = config.borrow_mut();
+    if let Some(cmd) = cli.command {
+        match cmd {
+            Commands::Init(cmd) => cmd.run(cfg).await?,
+            Commands::Git(cmd) => cmd.run(cfg).await?,
+            Commands::Github(cmd) => cmd.run(cfg).await?,
+            Commands::Scan(cmd) => cmd.run(cfg).await?,
+            Commands::Yaml(cmd) => cmd.run(cfg).await?,
+            Commands::Repo(cmd) => cmd.run(cfg).await?,
+            Commands::Repos(cmd) => cmd.run(cfg).await?,
+            Commands::Run(cmd) => cmd.run(cfg).await?,
+            Commands::Shell(cmd) => cmd.run(cfg).await?,
         }
-        Some(Commands::Repo { cmd }) => {
-            handle_repo_command(cmd, &mut config).await?;
-        }
-        Some(Commands::Repos { cmd }) => {
-            handle_repos_command(cmd, &mut config).await?;
-        }
-        Some(Commands::Github) => {
-            handle_github_command(config).await?;
-        }
-        Some(Commands::Git { cmd }) => {
-            handle_git_command(cmd, &mut config).await?;
-        }
-        Some(Commands::Scan {
-            directory,
-            depth,
-            recurse,
-            add,
-        }) => {
-            handle_scan_command(directory.clone(), *depth, *recurse, *add, &mut config).await?;
-        }
-        Some(Commands::Yaml { cmd }) => {
-            if let Some(YamlCommand::Update { file, target }) = cmd {
-                let filepath = PathBuf::new().join(file);
-                yaml::update(filepath, target).await?
-            }
-        }
-        None => (),
-    };
+    }
 
     Ok(())
 }
@@ -134,16 +95,12 @@ fn log(log_level: LevelFilter) -> Result<(), anyhow::Error> {
     }
 
     let log_file = cache_dir.join("dev.log");
-    let file: File;
-    if !log_file.is_file() {
-        file = File::create(log_file)?;
-    } else {
-        file = File::options().append(true).create(true).open(log_file)?;
-    }
+    let file = File::options().append(true).create(true).open(log_file)?;
 
     env_logger::Builder::new()
         .filter_level(log_level)
         .target(Target::Pipe(Box::new(file)))
+        .target(Target::Stderr)
         .init();
 
     Ok(())
