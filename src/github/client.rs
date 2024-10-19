@@ -5,6 +5,9 @@ use super::graphql::pull_request::open::{
     queries::{PullRequest, PullRequestOpenArguments},
     run_query,
 };
+
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 pub async fn open_pr(
     base_ref: &str,
     head_ref: &str,
@@ -36,7 +39,7 @@ impl GithubClient {
         };
 
         let client = Client::builder()
-            .user_agent("dev-cli/0.1.0")
+            .user_agent(format!("dev-cli/v{VERSION}"))
             .default_headers(
                 std::iter::once((
                     reqwest::header::AUTHORIZATION,

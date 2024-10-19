@@ -45,6 +45,13 @@
             python3
             lua5_1
           ];
+
+          meta = {
+            description = "Run things in different languages";
+            homepage = "https://github.com/andrewkreuzer/dev-cli";
+            license = with pkgs.lib.licenses; [ mit unlicense ];
+            maintainers = pkgs.lib.maintainers ["andrewkreuzer"];
+          };
         };
 
         devShells.default = pkgs.mkShell {
