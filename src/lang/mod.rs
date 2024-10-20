@@ -96,7 +96,7 @@ impl std::fmt::Display for RunStatus {
 
 #[derive(Debug)]
 pub struct RunError {
-    pub exit_code: Option<String>,
+    pub exit_code: Option<i32>,
     pub message: String,
 }
 

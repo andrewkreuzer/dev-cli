@@ -5,9 +5,10 @@
     nixpkgs.url      = "github:NixOS/nixpkgs/nixos-unstable";
     rust-overlay.url = "github:oxalica/rust-overlay";
     flake-utils.url  = "github:numtide/flake-utils";
+    treefmt-nix.url = "github:numtide/treefmt-nix";
   };
 
-  outputs = { nixpkgs, rust-overlay, flake-utils, ... }:
+  outputs = { nixpkgs, rust-overlay, flake-utils, treefmt-nix, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         overlays = [ (import rust-overlay) ];
@@ -50,8 +51,21 @@
             description = "Run things in different languages";
             homepage = "https://github.com/andrewkreuzer/dev-cli";
             license = with pkgs.lib.licenses; [ mit unlicense ];
-            maintainers = pkgs.lib.maintainers ["andrewkreuzer"];
+            maintainers = [{
+              name = "Andrew Kreuzer";
+              email = "me@andrewkreuzer.com";
+              github = "andrewkreuzer";
+              githubId = 17596952;
+            }];
           };
+        };
+
+        imports = [
+          treefmt-nix.flakeModule
+        ];
+        treefmt.config = {
+          projectRootFile = "flake.nix";
+          programs.nixpkgs-fmt.enable = true;
         };
 
         devShells.default = pkgs.mkShell {

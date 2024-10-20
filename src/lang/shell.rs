@@ -34,7 +34,7 @@ impl super::LanguageFunctions for ShellLanguage {
             Some(code) => {
                 if code != 0 {
                     Err(anyhow::anyhow!(RunError {
-                        exit_code: Some(code.to_string()),
+                        exit_code: Some(code),
                         message: format!("Failed to run file: {file}, got {code}"),
                     }))
                 } else {
