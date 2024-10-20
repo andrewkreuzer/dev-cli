@@ -1,10 +1,8 @@
 use std::{future::Future, path::PathBuf};
 
-use anyhow::Error;
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 
 #[cfg(feature = "javascript")]
 mod javascript;
@@ -54,9 +52,9 @@ impl Default for Dev {
 }
 
 pub trait LanguageFunctions {
-    fn run_file(&self, dev: Dev, file: &str) -> impl Future<Output = Result<(), anyhow::Error>>;
+    fn run_file(&self, dev: Dev, file: &str, args: Vec<&str>) -> impl Future<Output = Result<RunStatus, anyhow::Error>>;
     fn load_file(&self, file: &str) -> impl Future<Output = Result<(), anyhow::Error>>;
-    fn run_shell(&self, command: &str) -> impl Future<Output = Result<(), anyhow::Error>>;
+    fn run_shell(&self, command: &str, args: Vec<&str>) -> impl Future<Output = Result<RunStatus, anyhow::Error>>;
 }
 
 #[derive(Clone, Debug)]
@@ -71,16 +69,57 @@ pub enum Language {
     FeatureNotEnabled(String),
 }
 
-#[derive(Debug, Error)]
+impl Language {
+    pub fn get_extension(&self) -> &str {
+        match self {
+        Language::Python(_) => ".py",
+        Language::Lua(_) => ".lua",
+        #[cfg(feature = "javascript")]
+        Language::JavaScript(_) => ".js",
+        Language::Shell(_) => ".sh",
+        _ => "", // TODO: feature not enabled??
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct RunStatus {
+    pub code: i32,
+    pub message: Option<String>,
+}
+
+impl std::fmt::Display for RunStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "RunStatus: {}", self.code)
+    }
+}
+
+#[derive(Debug)]
+pub struct RunError {
+    pub exit_code: Option<String>,
+    pub message: String,
+}
+
+impl std::fmt::Display for RunError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "RunError: {}", self.message)
+    }
+}
+
+impl std::error::Error for RunError {}
+
+#[derive(Debug, thiserror::Error)]
 pub enum LanguageError {
     #[error("Unsupported language: {0}")]
     UnsupportedLanguage(String),
     #[error("Feature not enabled for {0}")]
     FeatureNotEnabled(String),
+    #[error("Exit code: {0}")]
+    ExitCode(i32),
 }
 
 impl TryFrom<&str> for Language {
-    type Error = Error;
+    type Error = anyhow::Error;
     fn try_from(file: &str) -> Result<Self, Self::Error> {
         let extension = file.split('.').last().unwrap();
         match extension {
@@ -103,15 +142,15 @@ impl TryFrom<&str> for Language {
 }
 
 impl LanguageFunctions for Language {
-    async fn run_file(&self, dev: Dev, file: &str) -> Result<(), anyhow::Error> {
+    async fn run_file(&self, dev: Dev, file: &str, args: Vec<&str>) -> Result<RunStatus, anyhow::Error> {
         match self {
             #[cfg(feature = "javascript")]
             Language::JavaScript(language) => language.run_file(dev, file).await,
             #[cfg(feature = "lua")]
-            Language::Lua(language) => language.run_file(dev, file).await,
+            Language::Lua(language) => language.run_file(dev, file, args).await,
             #[cfg(feature = "python")]
-            Language::Python(language) => language.run_file(dev, file).await,
-            Language::Shell(language) => language.run_file(dev, file).await,
+            Language::Python(language) => language.run_file(dev, file, args).await,
+            Language::Shell(language) => language.run_file(dev, file, args).await,
             Language::FeatureNotEnabled(language) => {
                 Err(LanguageError::FeatureNotEnabled(language.into()).into())
             }
@@ -132,15 +171,15 @@ impl LanguageFunctions for Language {
             }
         }
     }
-    async fn run_shell(&self, command: &str) -> Result<(), anyhow::Error> {
+    async fn run_shell(&self, command: &str, args: Vec<&str>) -> Result<RunStatus, anyhow::Error> {
         match self {
             #[cfg(feature = "javascript")]
             Language::JavaScript(language) => language.run_shell(command).await,
             #[cfg(feature = "lua")]
-            Language::Lua(language) => language.run_shell(command).await,
+            Language::Lua(language) => language.run_shell(command, args).await,
             #[cfg(feature = "python")]
-            Language::Python(language) => language.run_shell(command).await,
-            Language::Shell(language) => language.run_shell(command).await,
+            Language::Python(language) => language.run_shell(command, args).await,
+            Language::Shell(language) => language.run_shell(command, args).await,
             Language::FeatureNotEnabled(language) => {
                 Err(LanguageError::FeatureNotEnabled(language.into()).into())
             }

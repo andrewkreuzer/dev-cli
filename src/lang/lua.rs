@@ -1,9 +1,9 @@
-use anyhow::{Error, Result};
+use anyhow::Result;
 use std::fs;
 
 use mlua::prelude::*;
 
-use super::Dev;
+use super::{Dev, RunStatus};
 
 #[derive(Debug, Clone)]
 pub struct LuaLanguage {}
@@ -54,7 +54,7 @@ impl mlua::UserData for Rectangle {
 }
 
 impl super::LanguageFunctions for LuaLanguage {
-    async fn run_file(&self, dev: Dev, file: &str) -> Result<(), Error> {
+    async fn run_file(&self, dev: Dev, file: &str, _args: Vec<&str>) -> Result<RunStatus, anyhow::Error> {
         let lua = Lua::new();
         let globals = lua.globals();
 
@@ -86,14 +86,17 @@ impl super::LanguageFunctions for LuaLanguage {
 
         println!("{}", dev.dir.display());
 
-        Ok(())
+        Ok(RunStatus {
+            code: 0,
+            message: None,
+        })
     }
 
     async fn load_file(&self, _file: &str) -> Result<(), anyhow::Error> {
         todo!()
     }
 
-    async fn run_shell(&self, _command: &str) -> Result<(), anyhow::Error> {
+    async fn run_shell(&self, _command: &str, _args: Vec<&str>) -> Result<RunStatus, anyhow::Error> {
         todo!();
     }
 }

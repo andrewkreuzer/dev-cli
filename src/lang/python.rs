@@ -1,4 +1,4 @@
-use super::Dev;
+use super::{Dev, RunStatus};
 use anyhow::Result;
 use log::info;
 use pyo3::prelude::*;
@@ -25,7 +25,7 @@ impl Default for PythonLanguage {
 }
 
 impl super::LanguageFunctions for PythonLanguage {
-    async fn run_file(&self, _dev: Dev, file: &str) -> Result<(), anyhow::Error> {
+    async fn run_file(&self, _dev: Dev, file: &str, _args: Vec<&str>) -> Result<RunStatus, anyhow::Error> {
         self.init()?;
 
         Python::with_gil(|py| {
@@ -34,7 +34,10 @@ impl super::LanguageFunctions for PythonLanguage {
                 .getattr("build")?
                 .extract()?;
             info!(target: "python", "out: {:?}", d);
-            Ok(())
+            Ok(RunStatus {
+                code: 0,
+                message: None,
+            })
         })
     }
 
@@ -42,7 +45,7 @@ impl super::LanguageFunctions for PythonLanguage {
         todo!()
     }
 
-    async fn run_shell(&self, _command: &str) -> Result<(), anyhow::Error> {
+    async fn run_shell(&self, _command: &str, _args: Vec<&str>) -> Result<RunStatus, anyhow::Error> {
         todo!();
     }
 }

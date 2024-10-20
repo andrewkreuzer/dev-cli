@@ -100,7 +100,7 @@ fn log(log_level: LevelFilter) -> Result<(), anyhow::Error> {
     env_logger::Builder::new()
         .filter_level(log_level)
         .target(Target::Pipe(Box::new(file)))
-        .target(Target::Stderr)
+        .target(Target::Stdout)
         .init();
 
     Ok(())

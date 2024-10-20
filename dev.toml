@@ -4,6 +4,50 @@ lua = { filetype = "lua", file = "examples/init.lua" }
 py = { filetype = "python", file = "examples/main.py" }
 js = { filetype = "javascript", file = "examples/index.js" }
 
+[run.pyt]
+filetype = "python"
+command = """
+import dev
+print(f'Running tests')
+
+build = {
+    'version': dev.get_version(),
+    'dir': dev.get_work_dir(),
+    'steps': [],
+}
+"""
+
+[run.sht]
+filetype = "zsh"
+command = """
+echo one: $1 two: $2 three: $3
+read -p "Switch[Ss]/Boot[Bb] " -r
+if [[ $REPLY =~ ^[Ss] ]]; then
+  echo "Switching"
+elif [[ $REPLY =~ ^[Bb] ]]; then
+  echo "Booting"
+else
+  echo "Cancelled"
+fi
+"""
+
+[run.luat]
+filetype = "lua"
+command = """
+local dev = require 'dev'
+M = {}
+M.init = function()
+  return "init"
+end
+M.Dev = {
+  version = Dev:get_version(),
+  dir = dev.rec.name,
+  steps = {
+  }
+}
+return M
+"""
+
 [repos.repo_2]
 name = "repo_2"
 path = "tests/repo_2"
@@ -11,12 +55,6 @@ path = "tests/repo_2"
 [repos.repo_1]
 name = "repo_1"
 path = "tests/repo_1"
-
-[repos.graphql-tests]
-org = "andrewkreuzer"
-name = "graphql-tests"
-url = "git@github.com:andrewkreuzer/graphql-tests"
-path = "tests/graphql-tests"
 
 [repos.dev-cli]
 name = "dev-cli"

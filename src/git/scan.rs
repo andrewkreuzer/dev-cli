@@ -45,10 +45,10 @@ fn scan_directories(starting_point: &Path, depth: usize) -> Vec<(PathBuf, Reposi
         .max_depth(depth)
         .into_iter()
         .filter_entry(is_not_hidden)
-        .filter_map(|v| v.ok())
-        .map(|x| x.into_path())
-        .filter_map(|p| if p.is_dir() { Some(p) } else { None })
-        .flat_map(|y| scan_directory(&y))
+        .filter_map(|d| d.ok())
+        .map(|d| d.into_path())
+        .filter_map(|d| if d.is_dir() { Some(d) } else { None })
+        .flat_map(|d| scan_directory(&d))
         .collect::<Vec<(PathBuf, Repository)>>()
 }
 

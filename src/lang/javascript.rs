@@ -31,7 +31,7 @@ impl Default for JavaScriptLanguage {
 }
 
 impl super::LanguageFunctions for JavaScriptLanguage {
-    async fn run_file(&self, dev: Dev, file: &str) -> Result<(), anyhow::Error> {
+    async fn run_file(&self, dev: Dev, file: &str, _args: Vec<&str>) -> Result<RunStatus, anyhow::Error> {
         self.init()?;
 
         let isolate = &mut v8::Isolate::new(Default::default());
@@ -82,7 +82,10 @@ impl super::LanguageFunctions for JavaScriptLanguage {
         // }
         // v8::V8::dispose_platform();
 
-        Ok(())
+        Ok(RunStatus {
+            code: 0,
+            message: None,
+        })
     }
 
     async fn load_file(&self, file: &str) -> Result<(), anyhow::Error> {
@@ -96,7 +99,7 @@ impl super::LanguageFunctions for JavaScriptLanguage {
         Ok(())
     }
 
-    async fn run_shell(&self, _command: &str) -> Result<(), anyhow::Error> {
+    async fn run_shell(&self, _command: &str, _args: Vec<&str>) -> Result<RunResult, anyhow::Error> {
         self.init()?;
 
         let isolate = &mut v8::Isolate::new(v8::CreateParams::default());
