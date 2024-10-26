@@ -28,7 +28,7 @@ struct Rectangle {
 }
 
 impl mlua::UserData for Rectangle {
-    fn add_fields<'lua, F: mlua::UserDataFields<'lua, Self>>(fields: &mut F) {
+    fn add_fields<'lua, F: mlua::UserDataFields<Self>>(fields: &mut F) {
         fields.add_field_method_get("name", |_, this| Ok(this.name.clone()));
         fields.add_field_method_get("length", |_, this| Ok(this.length));
         fields.add_field_method_set("length", |_, this, val| {
@@ -42,7 +42,7 @@ impl mlua::UserData for Rectangle {
         });
     }
 
-    fn add_methods<'lua, M: mlua::UserDataMethods<'lua, Self>>(methods: &mut M) {
+    fn add_methods<'lua, M: mlua::UserDataMethods<Self>>(methods: &mut M) {
         methods.add_method("area", |_, this, ()| Ok(this.length * this.width));
         methods.add_method("diagonal", |_, this, ()| {
             Ok((this.length.pow(2) as f64 + this.width.pow(2) as f64).sqrt())
@@ -81,7 +81,7 @@ impl super::LanguageFunctions for LuaLanguage {
         let dev: Dev = lua.from_value(m.get("Dev")?)?;
         println!("{}", dev.get_version());
 
-        let init: String = m.get::<&str, mlua::Function>("init")?.call(())?;
+        let init: String = m.get::<mlua::Function>("init")?.call(())?;
         println!("{}", init);
 
         println!("{}", dev.dir.display());
@@ -102,7 +102,7 @@ impl super::LanguageFunctions for LuaLanguage {
 }
 
 impl LuaUserData for Dev {
-    fn add_methods<'lua, M: LuaUserDataMethods<'lua, Self>>(methods: &mut M) {
+    fn add_methods<'lua, M: LuaUserDataMethods<Self>>(methods: &mut M) {
         methods.add_method("get_version", |_, this, ()| Ok(this.get_version()));
 
         methods.add_meta_method(LuaMetaMethod::Index, |lua, this, key: String| {
