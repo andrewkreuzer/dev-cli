@@ -1,6 +1,6 @@
 [run]
-try = { filetype = "bash", command = "find . -name '*.py' | wc -l"}
-lua = { filetype = "lua", file = "examples/init.lua" }
+f = { filetype = "bash", command = "find . -name '*.py' | wc -l"}
+lua = { filetype = "lua", file = "examples/main.lua" }
 py = { filetype = "python", file = "examples/main.py" }
 js = { filetype = "javascript", file = "examples/index.js" }
 
@@ -8,7 +8,6 @@ js = { filetype = "javascript", file = "examples/index.js" }
 filetype = "python"
 command = """
 import dev
-print(f'Running tests')
 
 build = {
     'version': dev.get_version(),
@@ -19,6 +18,7 @@ build = {
 
 [run.sht]
 filetype = "zsh"
+deps = ["f"]
 command = """
 echo one: $1 two: $2 three: $3
 read -p "Switch[Ss]/Boot[Bb] " -r
@@ -29,23 +29,6 @@ elif [[ $REPLY =~ ^[Bb] ]]; then
 else
   echo "Cancelled"
 fi
-"""
-
-[run.luat]
-filetype = "lua"
-command = """
-local dev = require 'dev'
-M = {}
-M.init = function()
-  return "init"
-end
-M.Dev = {
-  version = Dev:get_version(),
-  dir = dev.rec.name,
-  steps = {
-  }
-}
-return M
 """
 
 [repos.repo_2]

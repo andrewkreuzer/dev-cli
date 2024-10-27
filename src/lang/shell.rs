@@ -1,5 +1,7 @@
 use std::process::Command;
 
+use async_trait::async_trait;
+
 use super::{Dev, RunError, RunStatus};
 
 #[derive(Debug, Clone)]
@@ -21,6 +23,7 @@ impl Default for ShellLanguage {
     }
 }
 
+#[async_trait]
 impl super::LanguageFunctions for ShellLanguage {
     async fn run_file(&self, _dev: Dev, file: &str, args: Vec<&str>) -> Result<RunStatus, anyhow::Error> {
         let cmd = format!("{} {}", file, args.join(" "));
@@ -35,18 +38,18 @@ impl super::LanguageFunctions for ShellLanguage {
                 if code != 0 {
                     Err(anyhow::anyhow!(RunError {
                         exit_code: Some(code),
-                        message: format!("Failed to run file: {file}, got {code}"),
+                        message: Some(format!("Failed to run file: {file}, got {code}")),
                     }))
                 } else {
                     Ok(RunStatus {
-                        code,
+                        exit_code: Some(code),
                         message: None,
                     })
                 }
             }
             None => Err(anyhow::anyhow!(RunError {
                 exit_code: None,
-                message: format!("Failed to run file: {file}, process terminated"),
+                message: Some(format!("Failed to run file: {file}, process terminated")),
             })),
         }
     }
@@ -71,7 +74,7 @@ impl super::LanguageFunctions for ShellLanguage {
                     Err(anyhow::anyhow!("Failed to run shell, exit code: {code}"))
                 } else {
                     Ok(RunStatus {
-                        code,
+                        exit_code: Some(code),
                         message: None,
                     })
                 }

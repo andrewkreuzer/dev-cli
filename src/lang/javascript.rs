@@ -1,11 +1,17 @@
-use std::{fs, path::Path, process::Command};
+#![allow(unused_imports)]
 
 use anyhow::{anyhow, Error, Result};
+use async_trait::async_trait;
 use log::{error, info};
+use std::{fs, path::Path, process::Command};
+
+#[cfg(feature = "javascript")]
 use v8::Module;
 
-use super::Dev;
 
+use super::{Dev, RunStatus};
+
+#[cfg(feature = "javascript")]
 static LOG_TARGET: &str = "javascript";
 
 #[derive(Debug, Clone)]
@@ -16,6 +22,7 @@ impl JavaScriptLanguage {
         Self {}
     }
 
+    #[cfg(feature = "javascript")]
     fn init(&self) -> Result<(), anyhow::Error> {
         let platform = v8::new_default_platform(0, false).make_shared();
         v8::V8::initialize_platform(platform);
@@ -30,7 +37,39 @@ impl Default for JavaScriptLanguage {
     }
 }
 
+#[async_trait]
 impl super::LanguageFunctions for JavaScriptLanguage {
+    #[allow(unused_variables)]
+    async fn run_file(&self, dev: Dev, file: &str, _args: Vec<&str>) -> Result<RunStatus, anyhow::Error> {
+        #[cfg(not(feature = "javascript"))]
+        return Err(anyhow!("JavaScript support is not enabled"))?;
+
+        #[cfg(feature = "javascript")]
+        return self.run_file(dev, file).await;
+    }
+
+    #[allow(unused_variables)]
+    async fn load_file(&self, file: &str) -> Result<(), anyhow::Error> {
+        #[cfg(not(feature = "javascript"))]
+        return Err(anyhow!("JavaScript support is not enabled"))?;
+
+        #[cfg(feature = "javascript")]
+        return self.load_file(dev, file).await;
+    }
+
+    #[allow(unused_variables)]
+    async fn run_shell(&self, _command: &str, _args: Vec<&str>) -> Result<RunStatus, anyhow::Error> {
+        #[cfg(not(feature = "javascript"))]
+        return Err(anyhow!("JavaScript support is not enabled"))?;
+
+        #[cfg(feature = "javascript")]
+        return self.run_shell(dev, file).await;
+    }
+}
+
+
+#[cfg(feature = "javascript")]
+impl JavaScriptLanguage {
     async fn run_file(&self, dev: Dev, file: &str, _args: Vec<&str>) -> Result<RunStatus, anyhow::Error> {
         self.init()?;
 
@@ -83,7 +122,7 @@ impl super::LanguageFunctions for JavaScriptLanguage {
         // v8::V8::dispose_platform();
 
         Ok(RunStatus {
-            code: 0,
+            code: Some(0),
             message: None,
         })
     }
@@ -114,6 +153,7 @@ impl super::LanguageFunctions for JavaScriptLanguage {
     }
 }
 
+#[cfg(feature = "javascript")]
 fn load_file<'a>(
     file: &str,
     scope: &mut v8::HandleScope<'a>,
@@ -141,6 +181,7 @@ fn load_file<'a>(
 }
 
 #[inline]
+#[cfg(feature = "javascript")]
 fn get_version(
     scope: &mut v8::HandleScope,
     _args: v8::FunctionCallbackArguments,
@@ -156,6 +197,7 @@ fn get_version(
 }
 
 #[inline]
+#[cfg(feature = "javascript")]
 fn get_work_dir(
     scope: &mut v8::HandleScope,
     _args: v8::FunctionCallbackArguments,
@@ -167,6 +209,7 @@ fn get_work_dir(
     retval.set(result.into());
 }
 
+#[cfg(feature = "javascript")]
 fn ensure_module_instantiated<'a>(
     scope: &'a mut v8::HandleScope,
     module: v8::Local<'a, v8::Module>,
@@ -184,6 +227,7 @@ fn ensure_module_instantiated<'a>(
 }
 
 #[inline]
+#[cfg(feature = "javascript")]
 fn module_callback<'a>(
     context: v8::Local<'a, v8::Context>,
     specifier: v8::Local<'a, v8::String>,
@@ -211,6 +255,7 @@ fn module_callback<'a>(
 }
 
 #[inline]
+#[cfg(feature = "javascript")]
 fn evaluate_module<'a>(
     context: v8::Local<'a, v8::Context>,
     module: v8::Local<v8::Module>,
@@ -232,6 +277,7 @@ fn evaluate_module<'a>(
 }
 
 /// Process remaining command line arguments and execute files
+#[cfg(feature = "javascript")]
 fn run_shell(scope: &mut v8::HandleScope) -> Result<(), anyhow::Error> {
     use std::io::{self, Write};
 
@@ -256,6 +302,7 @@ fn run_shell(scope: &mut v8::HandleScope) -> Result<(), anyhow::Error> {
     }
 }
 
+#[cfg(feature = "javascript")]
 fn execute_string(
     scope: &mut v8::HandleScope,
     script: &str,
@@ -310,6 +357,7 @@ fn execute_string(
     }
 }
 
+#[cfg(feature = "javascript")]
 fn report_exceptions(mut try_catch: v8::TryCatch<v8::HandleScope>) {
     let exception = try_catch.exception().unwrap();
     let exception_string = exception

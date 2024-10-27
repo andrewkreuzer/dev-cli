@@ -62,8 +62,8 @@ impl Command for Run {
             "{name} command not found in {}",
             config.get_filepath().display(),
         ))?;
-        let lang = runref.filetype.as_ref().ok_or(anyhow!("filetype issue"))?;
 
+        let lang = runref.filetype.as_ref().ok_or(anyhow!("filetype issue"))?;
         if let Some(file) = runref.file.as_ref() {
             let status = lang.run_file(dev, file, args).await?;
             debug!("status: {}", status);
@@ -71,19 +71,15 @@ impl Command for Run {
         }
 
         if let Some(command) = runref.command.as_ref() {
-            let ext = lang.get_extension();
-            let tmpfilepath = "/tmp/dev".to_string() + ext;
-            let file = File::create(tmpfilepath.clone());
-            file?.write_all(command.as_bytes())?;
+            let tmpfilepath = format!("{}{}", config.get_tmp_dir(), lang.get_extension());
+            let mut file = File::create(tmpfilepath.clone())?;
+            file.write_all(command.as_bytes())?;
 
-            let file = File::open(tmpfilepath.clone());
-            let mut permissions = file?.metadata()?.permissions();
+            let mut permissions = file.metadata()?.permissions();
             use std::os::unix::fs::PermissionsExt;
             permissions.set_mode(0o755);
             std::fs::set_permissions(tmpfilepath.clone(), permissions)?;
-            lang
-                .run_file(dev, tmpfilepath.as_str(), args)
-                .await?;
+            lang.run_file(dev, tmpfilepath.as_str(), args).await?;
         }
 
         Ok(())

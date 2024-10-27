@@ -1,8 +1,15 @@
-use super::{Dev, RunStatus};
-use anyhow::Result;
-use log::info;
-use pyo3::prelude::*;
+#![allow(unused_imports)]
+
 use std::{fs, path::Path, process::Command};
+
+use anyhow::{anyhow, Result};
+use async_trait::async_trait;
+use log::info;
+
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
+use super::{Dev, RunStatus};
 
 #[derive(Debug, Clone)]
 pub struct PythonLanguage {}
@@ -11,6 +18,8 @@ impl PythonLanguage {
     pub fn new() -> Self {
         Self {}
     }
+
+    #[cfg(feature = "python")]
     fn init(&self) -> Result<()> {
         pyo3::append_to_inittab!(dev);
         pyo3::prepare_freethreaded_python();
@@ -24,8 +33,44 @@ impl Default for PythonLanguage {
     }
 }
 
+#[async_trait]
 impl super::LanguageFunctions for PythonLanguage {
-    async fn run_file(&self, _dev: Dev, file: &str, _args: Vec<&str>) -> Result<RunStatus, anyhow::Error> {
+    #[allow(unused_variables)]
+    async fn run_file(&self, dev: Dev, file: &str, args: Vec<&str>) -> Result<RunStatus, anyhow::Error> {
+        #[cfg(not(feature = "python"))]
+        return Err(anyhow!("python support is not enabled"))?;
+
+        #[cfg(feature = "python")]
+        return self.run_file(dev, file, args).await;
+    }
+
+    #[allow(unused_variables)]
+    async fn load_file(&self, file: &str) -> Result<(), anyhow::Error> {
+        #[cfg(not(feature = "python"))]
+        return Err(anyhow!("python support is not enabled"))?;
+
+        #[cfg(feature = "python")]
+        return self.load_file(file).await;
+    }
+
+    #[allow(unused_variables)]
+    async fn run_shell(&self, command: &str, args: Vec<&str>) -> Result<RunStatus, anyhow::Error> {
+        #[cfg(not(feature = "python"))]
+        return Err(anyhow!("python support is not enabled"))?;
+
+        #[cfg(feature = "python")]
+        return self.run_shell(command, args).await;
+    }
+}
+
+#[cfg(feature = "python")]
+impl PythonLanguage {
+    async fn run_file(
+        &self,
+        _dev: Dev,
+        file: &str,
+        _args: Vec<&str>,
+    ) -> Result<RunStatus, anyhow::Error> {
         self.init()?;
 
         Python::with_gil(|py| {
@@ -35,7 +80,7 @@ impl super::LanguageFunctions for PythonLanguage {
                 .extract()?;
             info!(target: "python", "out: {:?}", d);
             Ok(RunStatus {
-                code: 0,
+                exit_code: Some(0),
                 message: None,
             })
         })
@@ -45,11 +90,16 @@ impl super::LanguageFunctions for PythonLanguage {
         todo!()
     }
 
-    async fn run_shell(&self, _command: &str, _args: Vec<&str>) -> Result<RunStatus, anyhow::Error> {
+    async fn run_shell(
+        &self,
+        _command: &str,
+        _args: Vec<&str>,
+    ) -> Result<RunStatus, anyhow::Error> {
         todo!();
     }
 }
 
+#[cfg(feature = "python")]
 #[pymodule]
 mod dev {
     use super::*;

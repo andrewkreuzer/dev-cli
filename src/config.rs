@@ -55,18 +55,27 @@ impl From<toml::ser::Error> for Error {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Config {
+    filepath: Option<PathBuf>,
+    repos: HashMap<String, GitRepository>,
+    run: HashMap<String, RunRef>,
+    #[serde(alias = "env")]
+    environment: Option<Vec<String>>,
+
+    #[serde(skip)]
+    tmp_dir: String
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct RunRef {
     pub file: Option<String>,
     pub command: Option<String>,
     pub filetype: Option<Language>,
     pub path: Option<PathBuf>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Config {
-    filepath: Option<PathBuf>,
-    repos: HashMap<String, GitRepository>,
-    run: HashMap<String, RunRef>,
+    #[serde(alias = "deps")]
+    pub dependencies: Option<Vec<String>>,
+    #[serde(alias = "env")]
+    pub environment: Option<Vec<String>>,
 }
 
 impl Config {
@@ -84,6 +93,9 @@ impl Config {
             repos,
             run,
             filepath: None,
+            environment: None,
+
+            tmp_dir: "/tmp/dev".to_string(),
         }
     }
 
@@ -109,6 +121,10 @@ impl Config {
 
     pub fn get_mut_repo(&mut self, repo: &str) -> Option<&mut GitRepository> {
         self.repos.get_mut(repo)
+    }
+
+    pub fn get_env_vars(&self) -> Option<&Vec<String>> {
+        self.environment.as_ref()
     }
 
     pub fn update_repo(&mut self, repo: GitRepository) -> Result<(), Error> {
@@ -170,6 +186,10 @@ impl Config {
 
     pub fn get_run(&self, name: &str) -> Option<&RunRef> {
         self.run.get(name)
+    }
+
+    pub fn get_tmp_dir(&self) -> &str {
+        &self.tmp_dir
     }
 }
 
