@@ -28,11 +28,10 @@ pub struct Run {
 
 impl Command for Run {
     async fn run(&self, config: &mut Config) -> Result<(), anyhow::Error> {
-        let dev = Dev::new();
-        let (type_, file, name) = (&self.type_, &self.file, &self.name);
+        let dev = Dev::new(config);
         let args = self.args.iter().map(|s| s as &str).collect::<Vec<&str>>();
 
-        match (type_, file) {
+        match (&self.type_, &self.file) {
             (Some(_), None) => {
                 return Err(anyhow!("No file provided"));
             }
@@ -51,7 +50,7 @@ impl Command for Run {
             (None, None) => {}
         }
 
-        let name = match name {
+        let name = match &self.name {
             Some(name) => name,
             None => {
                 return Err(anyhow!("No name provided"));
@@ -72,13 +71,17 @@ impl Command for Run {
 
         if let Some(command) = runref.command.as_ref() {
             let tmpfilepath = format!("{}{}", config.get_tmp_dir(), lang.get_extension());
-            let mut file = File::create(tmpfilepath.clone())?;
-            file.write_all(command.as_bytes())?;
+            {
+                // make sure file is out of scope so we don't get 
+                // "text file busy" error
+                let mut file = File::create(tmpfilepath.clone())?;
+                file.write_all(command.as_bytes())?;
 
-            let mut permissions = file.metadata()?.permissions();
-            use std::os::unix::fs::PermissionsExt;
-            permissions.set_mode(0o755);
-            std::fs::set_permissions(tmpfilepath.clone(), permissions)?;
+                let mut permissions = file.metadata()?.permissions();
+                use std::os::unix::fs::PermissionsExt;
+                permissions.set_mode(0o755);
+                std::fs::set_permissions(tmpfilepath.clone(), permissions)?;
+            }
             lang.run_file(dev, tmpfilepath.as_str(), args).await?;
         }
 

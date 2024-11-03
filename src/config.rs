@@ -60,7 +60,7 @@ pub struct Config {
     repos: HashMap<String, GitRepository>,
     run: HashMap<String, RunRef>,
     #[serde(alias = "env")]
-    environment: Option<Vec<String>>,
+    environment: Option<HashMap<String, String>>,
 
     #[serde(skip)]
     tmp_dir: String
@@ -75,7 +75,7 @@ pub struct RunRef {
     #[serde(alias = "deps")]
     pub dependencies: Option<Vec<String>>,
     #[serde(alias = "env")]
-    pub environment: Option<Vec<String>>,
+    pub environment: Option<HashMap<String, String>>,
 }
 
 impl Config {
@@ -123,7 +123,7 @@ impl Config {
         self.repos.get_mut(repo)
     }
 
-    pub fn get_env_vars(&self) -> Option<&Vec<String>> {
+    pub fn get_env_vars(&self) -> Option<&HashMap<String, String>> {
         self.environment.as_ref()
     }
 
@@ -191,10 +191,14 @@ impl Config {
     pub fn get_tmp_dir(&self) -> &str {
         &self.tmp_dir
     }
+
+    pub fn set_tmp_dir(&mut self, dir: &str) {
+        self.tmp_dir = dir.to_owned();
+    }
 }
 
 pub fn create_new(filepath: &PathBuf) -> Result<Config, Error> {
-    let _file = File::create(filepath)?;
+    let _ = File::create(filepath)?;
     write_file(filepath, &Config::new(None))
 }
 
@@ -203,6 +207,7 @@ pub fn load(filepath: PathBuf) -> Result<Config, Error> {
         Ok(content) => match toml::from_str::<Config>(&content) {
             Ok(mut config) => {
                 config.set_filepath(filepath);
+                config.set_tmp_dir("/tmp/dev");
                 Ok(config)
             }
             Err(e) => Err(Error::TomlDe(e)),

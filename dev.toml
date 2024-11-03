@@ -1,3 +1,6 @@
+[environment]
+TEST = "hello"
+
 [run]
 f = { filetype = "bash", command = "find . -name '*.py' | wc -l"}
 lua = { filetype = "lua", file = "examples/main.lua" }
@@ -7,29 +10,44 @@ js = { filetype = "javascript", file = "examples/index.js" }
 [run.pyt]
 filetype = "python"
 command = """
+import os
 import dev
 
 build = {
     'version': dev.get_version(),
     'dir': dev.get_work_dir(),
     'steps': [],
+    'environment': {
+      'TEST': os.environ.get("TEST", "not here")
+    },
 }
+"""
+
+[run.luat]
+filetype = "lua"
+command = """
+M = {}
+
+M.init = function()
+  return "init"
+end
+
+M.Out = {
+  version = dev:get_version(),
+  dir = dev:get_dir(),
+  environment = {
+    TEST = os.getenv("TEST")
+  },
+  steps = {
+  },
+}
+
+return M
 """
 
 [run.sht]
 filetype = "zsh"
-deps = ["f"]
-command = """
-echo one: $1 two: $2 three: $3
-read -p "Switch[Ss]/Boot[Bb] " -r
-if [[ $REPLY =~ ^[Ss] ]]; then
-  echo "Switching"
-elif [[ $REPLY =~ ^[Bb] ]]; then
-  echo "Booting"
-else
-  echo "Cancelled"
-fi
-"""
+command = "echo $TEST"
 
 [repos.repo_2]
 name = "repo_2"

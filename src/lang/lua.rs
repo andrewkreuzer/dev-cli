@@ -2,8 +2,8 @@
 
 use std::fs;
 
-use async_trait::async_trait;
 use anyhow::{anyhow, Result};
+use async_trait::async_trait;
 
 #[cfg(feature = "lua")]
 use mlua::prelude::*;
@@ -17,6 +17,15 @@ impl LuaLanguage {
     pub fn new() -> Self {
         Self {}
     }
+
+    fn init(&self, dev: &Dev) -> Result<Lua, anyhow::Error> {
+        // I guess we set with rust :(
+        for (key, value) in dev.get_env() {
+            std::env::set_var(key, value);
+        }
+        let lua = Lua::new();
+        Ok(lua)
+    }
 }
 
 impl Default for LuaLanguage {
@@ -28,7 +37,12 @@ impl Default for LuaLanguage {
 #[async_trait]
 impl super::LanguageFunctions for LuaLanguage {
     #[allow(unused_variables)]
-    async fn run_file(&self, dev: Dev, file: &str, args: Vec<&str>) -> Result<RunStatus, anyhow::Error> {
+    async fn run_file(
+        &self,
+        dev: Dev,
+        file: &str,
+        args: Vec<&str>,
+    ) -> Result<RunStatus, anyhow::Error> {
         #[cfg(not(feature = "lua"))]
         return Err(anyhow!("lua support is not enabled"))?;
 
@@ -55,11 +69,15 @@ impl super::LanguageFunctions for LuaLanguage {
     }
 }
 
-
 #[cfg(feature = "lua")]
 impl LuaLanguage {
-    async fn run_file(&self, dev: Dev, file: &str, _args: Vec<&str>) -> Result<RunStatus, anyhow::Error> {
-        let lua = Lua::new();
+    async fn run_file(
+        &self,
+        dev: Dev,
+        file: &str,
+        _args: Vec<&str>,
+    ) -> Result<RunStatus, anyhow::Error> {
+        let lua = self.init(&dev)?;
         let globals = lua.globals();
 
         // let load = lua.create_function(move |lua, modname: String| {
@@ -85,6 +103,14 @@ impl LuaLanguage {
         let dev: Dev = lua.from_value(m.get("Out")?)?;
         println!("{}", dev.get_version());
 
+        println!(
+            "{}",
+            dev.get_env()
+                .iter()
+                .map(|e| format!("{} = {}", e.0, e.1))
+                .collect::<String>()
+        );
+
         let init: String = m.get::<mlua::Function>("init")?.call(())?;
         println!("{}", init);
 
@@ -100,7 +126,11 @@ impl LuaLanguage {
         todo!()
     }
 
-    async fn run_shell(&self, _command: &str, _args: Vec<&str>) -> Result<RunStatus, anyhow::Error> {
+    async fn run_shell(
+        &self,
+        _command: &str,
+        _args: Vec<&str>,
+    ) -> Result<RunStatus, anyhow::Error> {
         todo!();
     }
 }
@@ -166,4 +196,3 @@ impl LuaUserData for Dev {
 //         methods.add_meta_function(mlua::MetaMethod::Call, |_, ()| Ok(Rectangle::default()));
 //     }
 // }
-

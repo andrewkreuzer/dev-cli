@@ -1,6 +1,7 @@
 use std::process::Command;
 
 use async_trait::async_trait;
+use log::debug;
 
 use super::{Dev, RunError, RunStatus};
 
@@ -25,11 +26,28 @@ impl Default for ShellLanguage {
 
 #[async_trait]
 impl super::LanguageFunctions for ShellLanguage {
-    async fn run_file(&self, _dev: Dev, file: &str, args: Vec<&str>) -> Result<RunStatus, anyhow::Error> {
+    async fn run_file(
+        &self,
+        dev: Dev,
+        file: &str,
+        args: Vec<&str>,
+    ) -> Result<RunStatus, anyhow::Error> {
         let cmd = format!("{} {}", file, args.join(" "));
+
+        debug!(
+            "running cmd: {} in shell: {} with envs: {}",
+            cmd,
+            self.shell,
+            dev.environment
+                .iter()
+                .map(|e| format!("{} = {}", e.0, e.1))
+                .collect::<String>()
+        );
+
         let mut child = Command::new(self.shell.as_str())
             .arg("-c")
             .arg(cmd)
+            .envs(dev.environment.clone())
             .spawn()
             .expect("failed to execute child");
 
@@ -58,28 +76,11 @@ impl super::LanguageFunctions for ShellLanguage {
         todo!()
     }
 
-    async fn run_shell(&self, command: &str, args: Vec<&str>) -> Result<RunStatus, anyhow::Error> {
-        // let command: Vec<&str> = command.split_whitespace().collect();
-
-        let cmd = format!("{} {}", command, args.join(" "));
-        let mut child = Command::new(self.shell.as_str())
-            .arg("-c")
-            .arg(cmd)
-            .spawn()
-            .expect("failed to execute child");
-
-        match child.wait()?.code() {
-            Some(code) => {
-                if code != 0 {
-                    Err(anyhow::anyhow!("Failed to run shell, exit code: {code}"))
-                } else {
-                    Ok(RunStatus {
-                        exit_code: Some(code),
-                        message: None,
-                    })
-                }
-            }
-            None => Err(anyhow::anyhow!("Failed to run shell, process terminated")),
-        }
+    async fn run_shell(
+        &self,
+        _command: &str,
+        _args: Vec<&str>,
+    ) -> Result<RunStatus, anyhow::Error> {
+        todo!()
     }
 }

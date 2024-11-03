@@ -1,9 +1,9 @@
-mod lua;
-mod shell;
-mod python;
 mod javascript;
+mod lua;
+mod python;
+mod shell;
 
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf};
 
 use async_trait::async_trait;
 use enum_dispatch::enum_dispatch;
@@ -12,24 +12,27 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 
-use lua::LuaLanguage;
-use shell::ShellLanguage;
-use python::PythonLanguage;
+use crate::config::Config;
 use javascript::JavaScriptLanguage;
+use lua::LuaLanguage;
+use python::PythonLanguage;
+use shell::ShellLanguage;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "python", derive(FromPyObject))]
 #[cfg_attr(feature = "python", pyo3(from_item_all))]
 pub struct Dev {
     pub version: String,
+    environment: HashMap<String, String>,
     pub dir: PathBuf,
     pub steps: Vec<String>,
 }
 
 impl Dev {
-    pub fn new() -> Self {
+    pub fn new(config: &Config) -> Self {
         Self {
             version: "0.1.0".to_string(),
+            environment: config.get_env_vars().unwrap_or(&HashMap::default()).clone(),
             dir: PathBuf::new(),
             steps: Vec::new(),
         }
@@ -42,11 +45,9 @@ impl Dev {
     pub fn get_dir(&self) -> PathBuf {
         self.dir.clone()
     }
-}
 
-impl Default for Dev {
-    fn default() -> Self {
-        Self::new()
+    pub fn get_env(&self) -> HashMap<String, String> {
+        self.environment.clone()
     }
 }
 
