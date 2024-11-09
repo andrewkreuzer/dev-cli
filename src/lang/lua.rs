@@ -101,20 +101,10 @@ impl LuaLanguage {
         let m: mlua::Table = lua.load(&lua_code).eval()?;
 
         let dev: Dev = lua.from_value(m.get("Out")?)?;
-        println!("{}", dev.get_version());
-
-        println!(
-            "{}",
-            dev.get_env()
-                .iter()
-                .map(|e| format!("{} = {}", e.0, e.1))
-                .collect::<String>()
-        );
+        println!("{}", dev);
 
         let init: String = m.get::<mlua::Function>("init")?.call(())?;
         println!("{}", init);
-
-        println!("{}", dev.dir.display());
 
         Ok(RunStatus {
             exit_code: Some(0),

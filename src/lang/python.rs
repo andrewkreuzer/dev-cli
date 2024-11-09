@@ -92,7 +92,7 @@ impl PythonLanguage {
             let d: Dev = PyModule::from_code_bound(py, &file_contents, "version", "version_info")?
                 .getattr("build")?
                 .extract()?;
-            info!(target: "python", "out: {:?}", d);
+            info!(target: "python", "out: {}", d);
             Ok(RunStatus {
                 exit_code: Some(0),
                 message: None,

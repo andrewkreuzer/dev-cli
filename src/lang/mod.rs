@@ -23,9 +23,20 @@ use shell::ShellLanguage;
 #[cfg_attr(feature = "python", pyo3(from_item_all))]
 pub struct Dev {
     pub version: String,
-    environment: HashMap<String, String>,
     pub dir: PathBuf,
     pub steps: Vec<String>,
+
+    environment: HashMap<String, String>,
+}
+
+impl std::fmt::Display for Dev {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Dev(version: {}, dir: {}, steps: {:?}, environment: {:?})",
+            self.version, self.dir.display(), self.steps, self.environment
+        )
+    }
 }
 
 impl Dev {
@@ -48,6 +59,16 @@ impl Dev {
 
     pub fn get_env(&self) -> HashMap<String, String> {
         self.environment.clone()
+    }
+
+    pub fn add_env(&mut self, env: (String, String)) {
+        self.environment.insert(env.0, env.1);
+    }
+
+    pub fn add_envs(&mut self, envs: &HashMap<String, String>) {
+        for (k, v) in envs.iter() {
+            self.environment.insert(k.to_string(), v.to_string());
+        }
     }
 }
 

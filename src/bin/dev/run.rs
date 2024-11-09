@@ -28,7 +28,7 @@ pub struct Run {
 
 impl Command for Run {
     async fn run(&self, config: &mut Config) -> Result<(), anyhow::Error> {
-        let dev = Dev::new(config);
+        let mut dev = Dev::new(config);
         let args = self.args.iter().map(|s| s as &str).collect::<Vec<&str>>();
 
         match (&self.type_, &self.file) {
@@ -63,6 +63,10 @@ impl Command for Run {
         ))?;
 
         let lang = runref.filetype.as_ref().ok_or(anyhow!("filetype issue"))?;
+        if let Some(runref_envs) = &runref.environment {
+            dev.add_envs(runref_envs);
+        }
+
         if let Some(file) = runref.file.as_ref() {
             let status = lang.run_file(dev, file, args).await?;
             debug!("status: {}", status);

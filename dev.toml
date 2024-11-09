@@ -9,6 +9,7 @@ js = { filetype = "javascript", file = "examples/index.js" }
 
 [run.pyt]
 filetype = "python"
+environment = { "Dev" = "D", "KEY" = "K" }
 command = """
 import os
 import dev
@@ -18,7 +19,9 @@ build = {
     'dir': dev.get_work_dir(),
     'steps': [],
     'environment': {
-      'TEST': os.environ.get("TEST", "not here")
+      'TEST': os.environ.get("TEST", "TEST not here"),
+      'DEV': os.environ.get("Dev", "DEV not here"),
+      'KEY': os.environ.get("KEY", "KEY not here"),
     },
 }
 """
@@ -36,7 +39,8 @@ M.Out = {
   version = dev:get_version(),
   dir = dev:get_dir(),
   environment = {
-    TEST = os.getenv("TEST")
+    TEST = os.getenv("TEST"),
+    Key = os.getenv("KEY"),
   },
   steps = {
   },
