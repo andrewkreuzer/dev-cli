@@ -18,7 +18,7 @@ use lua::LuaLanguage;
 use python::PythonLanguage;
 use shell::ShellLanguage;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "python", derive(FromPyObject))]
 #[cfg_attr(feature = "python", pyo3(from_item_all))]
 pub struct Dev {
@@ -33,8 +33,9 @@ impl std::fmt::Display for Dev {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Dev(version: {}, dir: {}, steps: {:?}, environment: {:?})",
-            self.version, self.dir.display(), self.steps, self.environment
+            "Dev(version: {}, dir: {})",
+            self.version,
+            self.dir.display().to_string().trim(),
         )
     }
 }
@@ -69,6 +70,24 @@ impl Dev {
         for (k, v) in envs.iter() {
             self.environment.insert(k.to_string(), v.to_string());
         }
+    }
+}
+
+impl std::fmt::Debug for Dev {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+"\nDev(
+    version: {},
+    dir: {},
+    steps: {:?},
+    environment: {:?},
+)",
+            self.version,
+            self.dir.display().to_string().trim(),
+            self.steps,
+            self.environment,
+        )
     }
 }
 
@@ -110,17 +129,11 @@ impl TryFrom<&str> for Language {
     fn try_from(file: &str) -> Result<Self, Self::Error> {
         let extension = file.split('.').last().unwrap();
         match extension {
-            "js" => Ok(Language::JavaScript(JavaScriptLanguage::new())),
+            "js" | "ts" => Ok(Language::JavaScript(JavaScriptLanguage::new())),
             "lua" => Ok(Language::Lua(LuaLanguage::new())),
             "py" => Ok(Language::Python(PythonLanguage::new())),
             "sh" | "bash" | "zsh" | "shell" => Ok(Language::Shell(ShellLanguage::new(extension))),
-            language => {
-                if ["js", "javascript", "lua", "py", "python"].contains(&language) {
-                    Err(LanguageError::FeatureNotEnabled(language.into()).into())
-                } else {
-                    Err(LanguageError::UnsupportedLanguage(language.into()).into())
-                }
-            }
+            language => Err(LanguageError::UnsupportedLanguage(language.into()).into()),
         }
     }
 }
@@ -146,20 +159,15 @@ impl<'a> Deserialize<'a> for Language {
     {
         let value = String::deserialize(deserializer)?;
         match value.as_str() {
-            "javascript" | "js" => Ok(Language::JavaScript(JavaScriptLanguage::new())),
+            "javascript" | "js" | "ts" => Ok(Language::JavaScript(JavaScriptLanguage::new())),
             "lua" => Ok(Language::Lua(LuaLanguage::new())),
             "python" | "py" => Ok(Language::Python(PythonLanguage::new())),
             "shell" | "sh" | "bash" | "zsh" => {
                 Ok(Language::Shell(ShellLanguage::new(value.as_str())))
             }
-            language => match language {
-                "js" | "javascript" | "lua" | "py" | "python" => Err(serde::de::Error::custom(
-                    format!("Feature not enabled for {language}",),
-                )),
-                _ => Err(serde::de::Error::custom(format!(
-                    "Unsupported language: {language}",
-                ))),
-            },
+            language => Err(serde::de::Error::custom(format!(
+                "Unsupported language: {language}",
+            ))),
         }
     }
 }
@@ -174,7 +182,6 @@ pub enum LanguageError {
     ExitCode(i32),
 }
 
-// Probably don't need both of these
 #[derive(Debug)]
 pub struct RunStatus {
     pub exit_code: Option<i32>,
@@ -184,9 +191,10 @@ pub struct RunStatus {
 impl std::fmt::Display for RunStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match (&self.exit_code, &self.message) {
-            (Some(code), None) => write!(f, "({})RunStatus: None", code),
-            (None, Some(msg)) => write!(f, "RunStatus: {}", msg),
-            _ => write!(f, "RunStatus: None"),
+            (Some(code), Some(msg)) => write!(f, "({code}) {msg}"),
+            (Some(code), None) => write!(f, "({code})"),
+            (None, Some(msg)) => write!(f, "{msg}"),
+            _ => write!(f, "None"),
         }
     }
 }

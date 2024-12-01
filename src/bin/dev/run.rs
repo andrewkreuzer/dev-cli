@@ -38,13 +38,13 @@ impl Command for Run {
             (None, Some(file)) => {
                 let runner = Language::try_from(file.as_str())?;
                 let status = runner.run_file(dev, file, args).await?;
-                debug!("status: {}", status);
+                debug!("{status}");
                 return Ok(());
             }
             (Some(t), Some(file)) => {
                 let runner = Language::try_from(t.as_str())?;
                 let status = runner.run_file(dev.clone(), file, args).await?;
-                debug!("status: {}", status);
+                debug!("{status}");
                 return Ok(());
             }
             (None, None) => {}
@@ -76,7 +76,7 @@ impl Command for Run {
         if let Some(command) = runref.command.as_ref() {
             let tmpfilepath = format!("{}{}", config.get_tmp_dir(), lang.get_extension());
             {
-                // make sure file is out of scope so we don't get 
+                // make sure file is out of scope so we don't get
                 // "text file busy" error
                 let mut file = File::create(tmpfilepath.clone())?;
                 file.write_all(command.as_bytes())?;
@@ -86,7 +86,8 @@ impl Command for Run {
                 permissions.set_mode(0o755);
                 std::fs::set_permissions(tmpfilepath.clone(), permissions)?;
             }
-            lang.run_file(dev, tmpfilepath.as_str(), args).await?;
+            let status = lang.run_file(dev, tmpfilepath.as_str(), args).await?;
+            debug!("status: {}", status);
         }
 
         Ok(())

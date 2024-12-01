@@ -4,7 +4,7 @@ use std::{fs, path::Path, process::Command};
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use log::info;
+use log::{debug, info};
 
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
@@ -89,13 +89,16 @@ impl PythonLanguage {
 
         Python::with_gil(|py| {
             let file_contents = fs::read_to_string(Path::new(file))?;
-            let d: Dev = PyModule::from_code_bound(py, &file_contents, "version", "version_info")?
-                .getattr("build")?
-                .extract()?;
-            info!(target: "python", "out: {}", d);
+            let dev_out: Dev =
+                PyModule::from_code_bound(py, &file_contents, "version", "version_info")?
+                    .getattr("build")?
+                    .extract()?;
+
+            debug!(target: "python", "{:?}", dev_out);
+
             Ok(RunStatus {
                 exit_code: Some(0),
-                message: None,
+                message: Some("success".to_string()),
             })
         })
     }

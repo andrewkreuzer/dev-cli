@@ -2,12 +2,11 @@
 
 use anyhow::{anyhow, Error, Result};
 use async_trait::async_trait;
-use log::{error, info};
+use log::{error, info, debug};
 use std::{fs, path::Path, process::Command};
 
 #[cfg(feature = "javascript")]
 use v8::Module;
-
 
 use super::{Dev, RunStatus};
 
@@ -40,12 +39,17 @@ impl Default for JavaScriptLanguage {
 #[async_trait]
 impl super::LanguageFunctions for JavaScriptLanguage {
     #[allow(unused_variables)]
-    async fn run_file(&self, dev: Dev, file: &str, _args: Vec<&str>) -> Result<RunStatus, anyhow::Error> {
+    async fn run_file(
+        &self,
+        dev: Dev,
+        file: &str,
+        args: Vec<&str>,
+    ) -> Result<RunStatus, anyhow::Error> {
         #[cfg(not(feature = "javascript"))]
         return Err(anyhow!("JavaScript support is not enabled"))?;
 
         #[cfg(feature = "javascript")]
-        return self.run_file(dev, file).await;
+        return self.run_file(dev, file, args).await;
     }
 
     #[allow(unused_variables)]
@@ -54,23 +58,27 @@ impl super::LanguageFunctions for JavaScriptLanguage {
         return Err(anyhow!("JavaScript support is not enabled"))?;
 
         #[cfg(feature = "javascript")]
-        return self.load_file(dev, file).await;
+        return self.load_file(file).await;
     }
 
     #[allow(unused_variables)]
-    async fn run_shell(&self, _command: &str, _args: Vec<&str>) -> Result<RunStatus, anyhow::Error> {
+    async fn run_shell(&self, command: &str, args: Vec<&str>) -> Result<RunStatus, anyhow::Error> {
         #[cfg(not(feature = "javascript"))]
         return Err(anyhow!("JavaScript support is not enabled"))?;
 
         #[cfg(feature = "javascript")]
-        return self.run_shell(dev, file).await;
+        return self.run_shell(command, args).await;
     }
 }
 
-
 #[cfg(feature = "javascript")]
 impl JavaScriptLanguage {
-    async fn run_file(&self, dev: Dev, file: &str, _args: Vec<&str>) -> Result<RunStatus, anyhow::Error> {
+    async fn run_file(
+        &self,
+        dev: Dev,
+        file: &str,
+        _args: Vec<&str>,
+    ) -> Result<RunStatus, anyhow::Error> {
         self.init()?;
 
         let isolate = &mut v8::Isolate::new(Default::default());
@@ -111,7 +119,7 @@ impl JavaScriptLanguage {
                 .ok_or(anyhow!("Failed to get default export"))?;
 
             match serde_v8::from_v8::<Dev>(tc_scope, default_export) {
-                Ok(dev) => info!(target: LOG_TARGET, "dev: {:?}", dev),
+                Ok(dev) => debug!(target: LOG_TARGET, "{:?}", dev),
                 Err(e) => error!(target: LOG_TARGET, "Error deserializing: {:?}", e),
             }
         }
@@ -122,7 +130,7 @@ impl JavaScriptLanguage {
         // v8::V8::dispose_platform();
 
         Ok(RunStatus {
-            code: Some(0),
+            exit_code: Some(0),
             message: None,
         })
     }
@@ -138,7 +146,11 @@ impl JavaScriptLanguage {
         Ok(())
     }
 
-    async fn run_shell(&self, _command: &str, _args: Vec<&str>) -> Result<RunResult, anyhow::Error> {
+    async fn run_shell(
+        &self,
+        _command: &str,
+        _args: Vec<&str>,
+    ) -> Result<RunStatus, anyhow::Error> {
         self.init()?;
 
         let isolate = &mut v8::Isolate::new(v8::CreateParams::default());
@@ -149,7 +161,12 @@ impl JavaScriptLanguage {
         let context_scope = &mut v8::ContextScope::new(handle_scope, context);
         let scope = &mut v8::HandleScope::new(context_scope);
 
-        run_shell(scope)
+        run_shell(scope)?;
+
+        Ok(RunStatus {
+            exit_code: Some(0),
+            message: None,
+        })
     }
 }
 

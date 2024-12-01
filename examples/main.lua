@@ -8,6 +8,7 @@ end
 M.Out = {
   version = dev:get_version(),
   dir = dev:get_dir(),
+  environment = {},
   steps = {
   }
 }

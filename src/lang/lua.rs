@@ -4,6 +4,7 @@ use std::fs;
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+use log::debug;
 
 #[cfg(feature = "lua")]
 use mlua::prelude::*;
@@ -101,14 +102,14 @@ impl LuaLanguage {
         let m: mlua::Table = lua.load(&lua_code).eval()?;
 
         let dev: Dev = lua.from_value(m.get("Out")?)?;
-        println!("{}", dev);
+        debug!("{:?}", dev);
 
         let init: String = m.get::<mlua::Function>("init")?.call(())?;
-        println!("{}", init);
+        debug!("{}", init);
 
         Ok(RunStatus {
             exit_code: Some(0),
-            message: None,
+            message: Some("success".to_string()),
         })
     }
 
