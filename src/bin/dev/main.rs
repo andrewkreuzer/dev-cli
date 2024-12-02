@@ -3,9 +3,9 @@ use std::process::exit;
 use log::error;
 
 mod clap;
-mod init;
 mod git;
 mod github;
+mod init;
 mod repo;
 mod run;
 mod scan;

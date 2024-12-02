@@ -1,7 +1,10 @@
 use clap::Args;
 
 use crate::clap::Command;
-use dev_cli::{config::Config, lang::{Language, LanguageFunctions}};
+use dev_cli::{
+    config::Config,
+    lang::{Language, LanguageFunctions},
+};
 
 #[derive(Args)]
 pub struct Shell {

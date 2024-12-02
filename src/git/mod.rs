@@ -1,3 +1,3 @@
 pub mod repo;
-pub use repo::{GitRepository, GitError};
+pub use repo::{GitError, GitRepository};
 pub mod scan;

@@ -63,7 +63,7 @@ pub struct Config {
     environment: Option<HashMap<String, String>>,
 
     #[serde(skip)]
-    tmp_dir: String
+    tmp_dir: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

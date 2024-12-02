@@ -2,7 +2,7 @@
 
 use anyhow::{anyhow, Error, Result};
 use async_trait::async_trait;
-use log::{error, info, debug};
+use log::{debug, error, info};
 use std::{fs, path::Path, process::Command};
 
 #[cfg(feature = "javascript")]

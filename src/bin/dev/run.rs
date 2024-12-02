@@ -59,7 +59,11 @@ impl Command for Run {
     }
 }
 
-pub async fn run_alias(config: &Config, alias: &str, args: Option<Vec<&str>>) -> Result<(), anyhow::Error> {
+pub async fn run_alias(
+    config: &Config,
+    alias: &str,
+    args: Option<Vec<&str>>,
+) -> Result<(), anyhow::Error> {
     let args = args.unwrap_or_default();
 
     let runref = config

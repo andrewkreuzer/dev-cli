@@ -12,12 +12,21 @@ pub struct Operation {
 
 impl Operation {
     pub fn new(op: String, path: String, from: Option<String>, value: Option<String>) -> Self {
-        Operation { op, path, from, value }
+        Operation {
+            op,
+            path,
+            from,
+            value,
+        }
     }
 
     pub fn run(&self, value: &mut serde_yaml::Value) {
         match self.op.as_str() {
-            "add" => self.add(value, self.path.as_str(), self.value.as_ref().unwrap().as_str()),
+            "add" => self.add(
+                value,
+                self.path.as_str(),
+                self.value.as_ref().unwrap().as_str(),
+            ),
             "remove" => self.remove(value),
             "replace" => self.replace(value),
             // "move" => self.move_(value),
@@ -58,7 +67,10 @@ impl Operation {
                 .get_mut(serde_yaml::Value::String(p.to_string()))
                 .unwrap();
         }
-        current.as_mapping_mut().unwrap().remove(serde_yaml::Value::String(last.to_string()));
+        current
+            .as_mapping_mut()
+            .unwrap()
+            .remove(serde_yaml::Value::String(last.to_string()));
     }
 
     fn replace(&self, value: &mut serde_yaml::Value) {
@@ -116,67 +128,73 @@ mod tests {
     #[test]
     fn add() {
         let mut value = serde_yaml::from_str(
-r#"
+            r#"
 a:
   b:
     c: 1
 "#,
-        ).unwrap();
+        )
+        .unwrap();
         let op = Operation::new("add".into(), "/a/b/d".into(), None, Some("2".into()));
         op.run(&mut value);
         assert_eq!(
             serde_yaml::to_string(&value).unwrap(),
-r#"
+            r#"
 a:
   b:
     c: 1
     d: 2
-"#.trim_start(),
+"#
+            .trim_start(),
         );
     }
 
     #[test]
     fn remove() {
         let mut value = serde_yaml::from_str(
-r#"
+            r#"
 a:
   b:
     c: 1
     d: 2
 "#,
-        ).unwrap();
+        )
+        .unwrap();
         let op = Operation::new("remove".into(), "/a/b/d".into(), None, None);
         op.run(&mut value);
         assert_eq!(
             serde_yaml::to_string(&value).unwrap(),
-r#"
+            r#"
 a:
   b:
     c: 1
-"#.trim_start(),
+"#
+            .trim_start(),
         );
     }
 
     #[test]
     fn replace() {
         let mut value = serde_yaml::from_str(
-r#"
+            r#"
 a:
   b:
     c: 1
     d: 2
 "#,
-        ).unwrap();
+        )
+        .unwrap();
         let op = Operation::new("replace".into(), "/a/b/d".into(), None, Some("3".into()));
         op.run(&mut value);
         assert_eq!(
             serde_yaml::to_string(&value).unwrap(),
-r#"
+            r#"
 a:
   b:
     c: 1
     d: 3
-"#.trim_start(),
+"#
+            .trim_start(),
         );
     }
 }

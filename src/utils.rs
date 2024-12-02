@@ -3,11 +3,7 @@ use std::{
     io::{self, Write},
 };
 
-pub fn write_tmp_file<P>(
-    path: P,
-    contents: &str,
-    set_excecute: bool,
-) -> Result<(), io::Error>
+pub fn write_tmp_file<P>(path: P, contents: &str, set_excecute: bool) -> Result<(), io::Error>
 where
     P: AsRef<std::path::Path>,
 {

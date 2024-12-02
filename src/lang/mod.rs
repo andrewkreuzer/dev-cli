@@ -77,7 +77,7 @@ impl std::fmt::Debug for Dev {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-"\nDev(
+            "\nDev(
     version: {},
     dir: {},
     steps: {:?},

@@ -5,8 +5,8 @@ use clap::Subcommand;
 
 use log::warn;
 
-use dev_cli::{config::Config, git};
 use crate::clap::Command;
+use dev_cli::{config::Config, git};
 
 #[derive(Subcommand)]
 #[command(arg_required_else_help = true)]
