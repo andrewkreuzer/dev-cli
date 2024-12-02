@@ -2,9 +2,9 @@ use std::{
     borrow::BorrowMut,
     fs::{self, File},
     path::PathBuf,
-    io::Write,
 };
 
+use dev_cli::config;
 use env_logger::Target;
 use log::LevelFilter;
 
@@ -16,13 +16,11 @@ use crate::{
     github::Github,
     init::Init,
     repo::{Repo, Repos},
-    run::Run,
+    run::{run_alias, Run},
     scan::Scan,
     shell::Shell,
     yaml::Yaml,
 };
-use dev_cli::config;
-use dev_cli::lang::{Dev, LanguageFunctions};
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -37,7 +35,7 @@ struct Cli {
     #[clap(subcommand)]
     command: Option<Commands>,
 
-    arg: Option<String>,
+    alias: Option<String>,
 }
 
 pub trait Command {
@@ -84,31 +82,16 @@ pub async fn init() -> Result<(), anyhow::Error> {
             Commands::Run(cmd) => cmd.run(cfg).await?,
             Commands::Shell(cmd) => cmd.run(cfg).await?,
         }
-    } else if let Some(arg) = cli.arg {
-        if let Some(runref) = config.get_run(&arg) {
-            if let Some(runner) = &runref.filetype {
-                let dev = Dev::new(&config);
-                if let Some(f) = &runref.file {
-                    runner.run_file(dev, f, vec![]).await?;
-                } else if let Some(command) = runref.command.as_ref() {
-                    let tmpfilepath = format!("{}{}", config.get_tmp_dir(), runner.get_extension());
-                    {
-                        // make sure file is out of scope so we don't get
-                        // "text file busy" error
-                        let mut file = File::create(tmpfilepath.clone())?;
-                        file.write_all(command.as_bytes())?;
-
-                        let mut permissions = file.metadata()?.permissions();
-                        use std::os::unix::fs::PermissionsExt;
-                        permissions.set_mode(0o755);
-                        std::fs::set_permissions(tmpfilepath.clone(), permissions)?;
-                    }
-                    let args = vec![];
-                    let _status = runner.run_file(dev, tmpfilepath.as_str(), args).await?;
-                }
+    } else if let Some(alias) = cli.alias {
+        match alias {
+            alias if config.get_run(&alias).is_some() => {
+                run_alias(&config, &alias, None).await?;
             }
-        } else {
-            println!("nana");
+            _ => {
+                use clap::CommandFactory;
+                let mut cmd = Cli::command();
+                cmd.print_help()?;
+            }
         }
     };
 

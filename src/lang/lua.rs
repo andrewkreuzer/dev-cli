@@ -45,7 +45,7 @@ impl super::LanguageFunctions for LuaLanguage {
         args: Vec<&str>,
     ) -> Result<RunStatus, anyhow::Error> {
         #[cfg(not(feature = "lua"))]
-        return Err(anyhow!("lua support is not enabled"))?;
+        return Err(anyhow!("lua support is not enabled"));
 
         #[cfg(feature = "lua")]
         return self.run_file(dev, file, args).await;
@@ -54,7 +54,7 @@ impl super::LanguageFunctions for LuaLanguage {
     #[allow(unused_variables)]
     async fn load_file(&self, file: &str) -> Result<(), anyhow::Error> {
         #[cfg(not(feature = "lua"))]
-        return Err(anyhow!("lua support is not enabled"))?;
+        return Err(anyhow!("lua support is not enabled"));
 
         #[cfg(feature = "lua")]
         return self.load_file(file).await;
@@ -63,7 +63,7 @@ impl super::LanguageFunctions for LuaLanguage {
     #[allow(unused_variables)]
     async fn run_shell(&self, command: &str, args: Vec<&str>) -> Result<RunStatus, anyhow::Error> {
         #[cfg(not(feature = "lua"))]
-        return Err(anyhow!("lua support is not enabled"))?;
+        return Err(anyhow!("lua support is not enabled"));
 
         #[cfg(feature = "lua")]
         return self.run_shell(command, args).await;

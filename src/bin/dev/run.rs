@@ -1,11 +1,9 @@
-use std::fs::File;
-use std::io::Write;
-
 use crate::clap::Command;
 use anyhow::anyhow;
 use clap::Args;
 use dev_cli::config::Config;
 use dev_cli::lang::{Dev, Language, LanguageFunctions};
+use dev_cli::utils::write_tmp_file;
 use log::debug;
 
 #[derive(Args)]
@@ -28,7 +26,7 @@ pub struct Run {
 
 impl Command for Run {
     async fn run(&self, config: &mut Config) -> Result<(), anyhow::Error> {
-        let mut dev = Dev::new(config);
+        let dev = Dev::new(config);
         let args = self.args.iter().map(|s| s as &str).collect::<Vec<&str>>();
 
         match (&self.type_, &self.file) {
@@ -57,39 +55,36 @@ impl Command for Run {
             }
         };
 
-        let runref = config.get_run(name).ok_or(anyhow!(
-            "{name} command not found in {}",
-            config.get_filepath().display(),
-        ))?;
-
-        let lang = runref.filetype.as_ref().ok_or(anyhow!("filetype issue"))?;
-        if let Some(runref_envs) = &runref.environment {
-            dev.add_envs(runref_envs);
-        }
-
-        if let Some(file) = runref.file.as_ref() {
-            let status = lang.run_file(dev, file, args).await?;
-            debug!("status: {}", status);
-            return Ok(());
-        }
-
-        if let Some(command) = runref.command.as_ref() {
-            let tmpfilepath = format!("{}{}", config.get_tmp_dir(), lang.get_extension());
-            {
-                // make sure file is out of scope so we don't get
-                // "text file busy" error
-                let mut file = File::create(tmpfilepath.clone())?;
-                file.write_all(command.as_bytes())?;
-
-                let mut permissions = file.metadata()?.permissions();
-                use std::os::unix::fs::PermissionsExt;
-                permissions.set_mode(0o755);
-                std::fs::set_permissions(tmpfilepath.clone(), permissions)?;
-            }
-            let status = lang.run_file(dev, tmpfilepath.as_str(), args).await?;
-            debug!("status: {}", status);
-        }
-
-        Ok(())
+        run_alias(config, name, Some(args)).await
     }
+}
+
+pub async fn run_alias(config: &Config, alias: &str, args: Option<Vec<&str>>) -> Result<(), anyhow::Error> {
+    let args = args.unwrap_or_default();
+
+    let runref = config
+        .get_run(alias)
+        .ok_or(anyhow!("{alias} command not found in {}", alias))?;
+
+    let lang = runref
+        .filetype
+        .as_ref()
+        .ok_or(anyhow!("runner ref filetype not found"))?;
+
+    let dev = Dev::new(config);
+    let file = runref.file.as_ref();
+    let command = runref.command.as_ref();
+    if let Some(f) = file {
+        let dev = Dev::new(config);
+        let status = lang.run_file(dev, f, vec![]).await?;
+        debug!("status: {}", status);
+    }
+
+    if let Some(c) = command {
+        let tmpfilepath = format!("{}{}", config.get_tmp_dir(), lang.get_extension());
+        write_tmp_file(tmpfilepath.as_str(), c, true)?;
+        let status = lang.run_file(dev, tmpfilepath.as_str(), args).await?;
+        debug!("status: {}", status);
+    }
+    Ok(())
 }

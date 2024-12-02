@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = ["python", "lua"]
+default = ["python", "lua", "javascript"]
 javascript =["dep:v8", "dep:serde_v8"]
 lua = ["dep:mlua"]
 python = ["dep:pyo3"]

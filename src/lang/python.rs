@@ -52,7 +52,7 @@ impl super::LanguageFunctions for PythonLanguage {
         args: Vec<&str>,
     ) -> Result<RunStatus, anyhow::Error> {
         #[cfg(not(feature = "python"))]
-        return Err(anyhow!("python support is not enabled"))?;
+        return Err(anyhow!("python support is not enabled"));
 
         #[cfg(feature = "python")]
         return self.run_file(dev, file, args).await;
@@ -61,7 +61,7 @@ impl super::LanguageFunctions for PythonLanguage {
     #[allow(unused_variables)]
     async fn load_file(&self, file: &str) -> Result<(), anyhow::Error> {
         #[cfg(not(feature = "python"))]
-        return Err(anyhow!("python support is not enabled"))?;
+        return Err(anyhow!("python support is not enabled"));
 
         #[cfg(feature = "python")]
         return self.load_file(file).await;
@@ -70,7 +70,7 @@ impl super::LanguageFunctions for PythonLanguage {
     #[allow(unused_variables)]
     async fn run_shell(&self, command: &str, args: Vec<&str>) -> Result<RunStatus, anyhow::Error> {
         #[cfg(not(feature = "python"))]
-        return Err(anyhow!("python support is not enabled"))?;
+        return Err(anyhow!("python support is not enabled"));
 
         #[cfg(feature = "python")]
         return self.run_shell(command, args).await;
