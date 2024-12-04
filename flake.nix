@@ -15,23 +15,37 @@
         pkgs = import nixpkgs {
           inherit system overlays;
         };
+
         rustPlatform = pkgs.makeRustPlatform {
           cargo = pkgs.rust-bin.selectLatestNightlyWith (toolchain: toolchain.default);
           rustc = pkgs.rust-bin.selectLatestNightlyWith (toolchain: toolchain.default);
         };
+
+        rustyV8Version = with builtins; replaceStrings ["^"] [""] (fromTOML
+          (readFile ./Cargo.toml)).dependencies.v8.version;
+        rustyV8StaticLibUrl = profile:
+          "https://github.com/denoland/rusty_v8/releases/download/v"
+          + rustyV8Version + "/librusty_v8_"
+          + profile + "_x86_64-unknown-linux-gnu.a.gz";
+        rustyV8Archive = profile: pkgs.fetchurl {
+          url = rustyV8StaticLibUrl profile;
+          sha256 = "sha256-MKdqaIF3M7j9IraOezoP5szr+SDfTg0iUOEtwe76N7k=";
+        };
       in
       {
-        packages.default = rustPlatform.buildRustPackage {
+        packages.default = rustPlatform.buildRustPackage rec {
           pname = "dev";
           version = (builtins.fromTOML
             (builtins.readFile ./Cargo.toml)).package.version;
 
+          buildType = "release";
           src = ./.;
           cargoLock = {
             lockFile = ./Cargo.lock;
           };
 
           buildFeatures = [];
+          RUSTY_V8_ARCHIVE = rustyV8Archive buildType;
 
           nativeBuildInputs = with pkgs; [
             openssl
