@@ -10,6 +10,7 @@
 
   outputs = { nixpkgs, rust-overlay, flake-utils, treefmt-nix, ... }:
     flake-utils.lib.eachDefaultSystem (system:
+      with builtins;
       let
         overlays = [ (import rust-overlay) ];
         pkgs = import nixpkgs {
@@ -21,8 +22,8 @@
           rustc = pkgs.rust-bin.selectLatestNightlyWith (toolchain: toolchain.default);
         };
 
-        rustyV8Version = with builtins; replaceStrings ["^"] [""] (fromTOML
-          (readFile ./Cargo.toml)).dependencies.v8.version;
+        cargoTOML = fromTOML (readFile ./Cargo.toml);
+        rustyV8Version = replaceStrings ["^"] [""] cargoTOML.dependencies.v8.version;
         rustyV8StaticLibUrl = profile:
           "https://github.com/denoland/rusty_v8/releases/download/v"
           + rustyV8Version + "/librusty_v8_"
@@ -35,16 +36,15 @@
       {
         packages.default = rustPlatform.buildRustPackage rec {
           pname = "dev";
-          version = (builtins.fromTOML
-            (builtins.readFile ./Cargo.toml)).package.version;
+          version = cargoTOML.package.version;
 
           buildType = "release";
+          buildFeatures = [];
           src = ./.;
           cargoLock = {
             lockFile = ./Cargo.lock;
           };
 
-          buildFeatures = [];
           RUSTY_V8_ARCHIVE = rustyV8Archive buildType;
 
           nativeBuildInputs = with pkgs; [

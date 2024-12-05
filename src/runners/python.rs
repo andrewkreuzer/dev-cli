@@ -10,7 +10,7 @@ use log::{debug, info};
 use pyo3::prelude::*;
 use pyo3::types::IntoPyDict;
 
-use super::{Dev, RunStatus};
+use super::{dev::Dev, language, language::LanguageFunctions, RunStatus};
 
 #[derive(Debug, Clone)]
 pub struct PythonLanguage {}
@@ -28,7 +28,7 @@ impl PythonLanguage {
         Python::with_gil(|py| {
             let os = py.import_bound("os")?;
             let environ = os.getattr("environ")?;
-            let env_vars = dev.environment.clone().into_py_dict_bound(py);
+            let env_vars = dev.get_env().into_py_dict_bound(py);
             environ.call_method1("update", (env_vars,))?;
 
             Ok(())
@@ -43,7 +43,7 @@ impl Default for PythonLanguage {
 }
 
 #[async_trait]
-impl super::LanguageFunctions for PythonLanguage {
+impl language::LanguageFunctions for PythonLanguage {
     #[allow(unused_variables)]
     async fn run_file(
         &self,

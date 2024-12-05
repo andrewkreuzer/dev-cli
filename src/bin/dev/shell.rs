@@ -3,7 +3,7 @@ use clap::Args;
 use crate::clap::Command;
 use dev_cli::{
     config::Config,
-    lang::{Language, LanguageFunctions},
+    runners::{Language, LanguageFunctions},
 };
 
 #[derive(Args)]

@@ -8,7 +8,7 @@ use std::{fs, path::Path, process::Command};
 #[cfg(feature = "javascript")]
 use v8::Module;
 
-use super::{Dev, RunStatus};
+use super::{dev::Dev, language, language::LanguageFunctions, RunStatus};
 
 #[cfg(feature = "javascript")]
 static LOG_TARGET: &str = "javascript";
@@ -37,7 +37,7 @@ impl Default for JavaScriptLanguage {
 }
 
 #[async_trait]
-impl super::LanguageFunctions for JavaScriptLanguage {
+impl language::LanguageFunctions for JavaScriptLanguage {
     #[allow(unused_variables)]
     async fn run_file(
         &self,

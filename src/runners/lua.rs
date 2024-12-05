@@ -9,7 +9,7 @@ use log::debug;
 #[cfg(feature = "lua")]
 use mlua::prelude::*;
 
-use super::{Dev, RunStatus};
+use super::{dev::Dev, language, language::LanguageFunctions, RunStatus};
 
 #[derive(Debug, Clone)]
 pub struct LuaLanguage {}
@@ -36,7 +36,7 @@ impl Default for LuaLanguage {
 }
 
 #[async_trait]
-impl super::LanguageFunctions for LuaLanguage {
+impl language::LanguageFunctions for LuaLanguage {
     #[allow(unused_variables)]
     async fn run_file(
         &self,

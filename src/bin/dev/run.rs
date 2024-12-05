@@ -2,7 +2,7 @@ use crate::clap::Command;
 use anyhow::anyhow;
 use clap::Args;
 use dev_cli::config::Config;
-use dev_cli::lang::{Dev, Language, LanguageFunctions};
+use dev_cli::runners::{Dev, Language, LanguageFunctions};
 use dev_cli::utils::write_tmp_file;
 use log::debug;
 

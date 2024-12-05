@@ -3,7 +3,7 @@ use std::process::Command;
 use async_trait::async_trait;
 use log::debug;
 
-use super::{Dev, RunError, RunStatus};
+use super::{dev::Dev, language, RunError, RunStatus};
 
 #[derive(Debug, Clone)]
 pub struct ShellLanguage {
@@ -25,7 +25,7 @@ impl Default for ShellLanguage {
 }
 
 #[async_trait]
-impl super::LanguageFunctions for ShellLanguage {
+impl language::LanguageFunctions for ShellLanguage {
     async fn run_file(
         &self,
         dev: Dev,
@@ -38,16 +38,18 @@ impl super::LanguageFunctions for ShellLanguage {
             "running cmd: {} in shell: {} with envs: {}",
             cmd,
             self.shell,
-            dev.environment
+            dev.get_env()
                 .iter()
-                .map(|e| format!("{} = {}", e.0, e.1))
-                .collect::<String>()
+                .fold(
+                    "".to_string(),
+                    |acc, e| acc + &format!("{}={} ", e.0, e.1)
+                )
         );
 
         let mut child = Command::new(self.shell.as_str())
             .arg("-c")
             .arg(cmd)
-            .envs(dev.environment.clone())
+            .envs(dev.get_env().clone())
             .spawn()
             .expect("failed to execute child");
 

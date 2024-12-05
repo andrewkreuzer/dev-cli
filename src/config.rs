@@ -11,7 +11,7 @@ use std::{
 use dirs;
 use serde::{Deserialize, Serialize};
 
-use crate::{git::GitRepository, lang::Language};
+use crate::{git::GitRepository, runners::Language};
 
 #[derive(Debug)]
 pub enum Error {
@@ -56,7 +56,7 @@ impl From<toml::ser::Error> for Error {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
-    filepath: Option<PathBuf>,
+    path: Option<PathBuf>,
     repos: HashMap<String, GitRepository>,
     run: HashMap<String, RunRef>,
     #[serde(alias = "env")]
@@ -92,7 +92,7 @@ impl Config {
         Config {
             repos,
             run,
-            filepath: None,
+            path: None,
             environment: None,
 
             tmp_dir: "/tmp/dev".to_string(),
@@ -100,11 +100,11 @@ impl Config {
     }
 
     pub fn set_filepath(&mut self, filepath: PathBuf) {
-        self.filepath = Some(filepath);
+        self.path = Some(filepath);
     }
 
     pub fn get_filepath(&self) -> &PathBuf {
-        self.filepath.as_ref().unwrap()
+        self.path.as_ref().unwrap()
     }
 
     pub fn get_repo(&self, repo: &str) -> Option<&GitRepository> {
