@@ -68,7 +68,7 @@ pub async fn run_alias(
 
     let runref = config
         .get_run(alias)
-        .ok_or(anyhow!("{alias} command not found in {}", alias))?;
+        .ok_or(anyhow!("Command '{alias}' not found in config"))?;
 
     let lang = runref
         .filetype

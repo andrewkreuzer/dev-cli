@@ -4,3 +4,5 @@
 tests
 graphql/github.graphql
 result
+
+**/.claude/settings.local.json

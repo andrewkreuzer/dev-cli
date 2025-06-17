@@ -65,7 +65,7 @@ impl Serialize for Language {
             Language::JavaScript(_) => serializer.serialize_str("javascript"),
             Language::Lua(_) => serializer.serialize_str("lua"),
             Language::Python(_) => serializer.serialize_str("python"),
-            Language::Shell(_) => serializer.serialize_str("python"),
+            Language::Shell(_) => serializer.serialize_str("shell"),
         }
     }
 }
@@ -94,9 +94,20 @@ impl<'a> Deserialize<'a> for Language {
 pub enum LanguageError {
     #[error("Unsupported language: {0}")]
     UnsupportedLanguage(String),
+    
+    // Only used when we need to report that a language feature is not enabled
+    #[cfg(any(
+        not(feature = "python"), 
+        not(feature = "javascript"), 
+        not(feature = "lua")
+    ))]
     #[error("Feature not enabled for {0}")]
     FeatureNotEnabled(String),
+    
+    // Used for tests and potentially future functionality
+    #[cfg(test)]
     #[error("Exit code: {0}")]
+    #[allow(dead_code)]
     ExitCode(i32),
 }
 

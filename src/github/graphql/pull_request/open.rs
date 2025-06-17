@@ -1,7 +1,10 @@
 use anyhow::anyhow;
 use cynic::{http::ReqwestExt, MutationBuilder};
 
-use crate::github::client::GithubClient;
+use crate::github::{
+    client::GithubClient,
+    graphql::errors::{process_response, OptionExt},
+};
 use queries::{PullRequest, PullRequestOpen, PullRequestOpenArguments};
 
 pub async fn run_query(
@@ -10,25 +13,16 @@ pub async fn run_query(
 ) -> Result<PullRequest, anyhow::Error> {
     let query = build_query(variables);
 
-    let res = client.post().run_graphql(query).await?;
-
-    let errors = res.errors.as_ref().and_then(|errors| {
-        errors
-            .iter()
-            .map(|e| e.message.as_str())
-            .collect::<Vec<&str>>()
-            .join("\n")
-            .into()
-    });
-
-    if let Some(errors) = errors {
-        return Err(anyhow!(errors));
-    }
-
-    res.data
-        .and_then(|d| d.create_pull_request)
-        .and_then(|c| c.pull_request)
-        .ok_or(anyhow!("no pull request returned from query"))
+    let response = client.post().run_graphql(query).await?;
+    
+    // Process the GraphQL response to extract data or get detailed error info
+    let data = process_response(response, "PullRequest mutation")?;
+    
+    // Extract the pull request data from the response with descriptive error messages
+    data.create_pull_request
+        .context_err("Failed to create pull request")?
+        .pull_request
+        .context_err("Pull request data missing in response")
 }
 
 fn build_query(

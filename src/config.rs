@@ -13,55 +13,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::{git::GitRepository, runners::Language};
 
-#[derive(Debug)]
-pub enum Error {
-    Io(io::Error),
-    TomlDe(toml::de::Error),
-    TomlSer(toml::ser::Error),
-    Duplicate(String),
-    NotFound,
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Error::Io(e) => e.fmt(f),
-            Error::TomlDe(e) => e.fmt(f),
-            Error::TomlSer(e) => e.fmt(f),
-            Error::Duplicate(e) => e.fmt(f),
-            Error::NotFound => self.fmt(f),
-        }
-    }
-}
-
-impl error::Error for Error {}
-
-impl From<io::Error> for Error {
-    fn from(e: io::Error) -> Self {
-        Error::Io(e)
-    }
-}
-
-impl From<toml::de::Error> for Error {
-    fn from(e: toml::de::Error) -> Self {
-        Error::TomlDe(e)
-    }
-}
-
-impl From<toml::ser::Error> for Error {
-    fn from(e: toml::ser::Error) -> Self {
-        Error::TomlSer(e)
-    }
-}
+const GLOBAL_CONFIG_PATH: &str = "/etc/dev/dev.toml";
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
-    path: Option<PathBuf>,
     repos: HashMap<String, GitRepository>,
     run: HashMap<String, RunRef>,
     #[serde(alias = "env")]
     environment: Option<HashMap<String, String>>,
-
     #[serde(skip)]
     tmp_dir: String,
 }
@@ -92,19 +51,57 @@ impl Config {
         Config {
             repos,
             run,
-            path: None,
             environment: None,
 
             tmp_dir: "/tmp/dev".to_string(),
         }
     }
 
-    pub fn set_filepath(&mut self, filepath: PathBuf) {
-        self.path = Some(filepath);
+    pub fn load(filepath: PathBuf) -> Result<Config, Error> {
+        let global_config_path = PathBuf::new().join(GLOBAL_CONFIG_PATH);
+        let mut global_config = match read_file(&global_config_path) {
+            Ok(content) => {
+                let mut config = Config::try_from(content)?;
+                config.set_tmp_dir("/tmp/dev");
+                Ok(config)
+            }
+            Err(err) => match err.kind() {
+                io::ErrorKind::NotFound => {
+                    debug!("No config found in this directory, using default settings");
+                    Ok(Config::new(None))
+                }
+                _ => Err(Error::Io(err)),
+            },
+        }?;
+
+        let local_config = match read_file(&filepath) {
+            Ok(content) => {
+                let mut config = Config::try_from(content)?;
+                config.set_tmp_dir("/tmp/dev");
+                Ok(config)
+            }
+            Err(err) => match err.kind() {
+                io::ErrorKind::NotFound => {
+                    debug!("No config found in this directory, using default settings");
+                    Ok(Config::new(None))
+                }
+                _ => Err(Error::Io(err)),
+            },
+        }?;
+
+        global_config.merge(local_config)
     }
 
-    pub fn get_filepath(&self) -> &PathBuf {
-        self.path.as_ref().unwrap()
+    fn merge(&mut self, other: Config) -> Result<Config, Error> {
+        self.repos.extend(other.repos);
+        self.run.extend(other.run);
+        match (self.environment.clone(), other.environment) {
+            (Some(mut this), Some(other)) => this.extend(other),
+            (Some(_), None) => {},
+            (None, Some(other)) => self.environment = Some(other),
+            (None, None) => {},
+        }
+        Ok(self.to_owned())
     }
 
     pub fn get_repo(&self, repo: &str) -> Option<&GitRepository> {
@@ -197,29 +194,19 @@ impl Config {
     }
 }
 
+impl TryFrom<String> for Config {
+    type Error = Error;
+    fn try_from(s: String) -> Result<Self, Error> {
+        match toml::from_str::<Config>(&s) {
+            Ok(config) => Ok(config),
+            Err(e) => Err(Error::TomlDe(e)),
+        }
+    }
+}
+
 pub fn create_new(filepath: &PathBuf) -> Result<Config, Error> {
     let _ = File::create(filepath)?;
     write_file(filepath, &Config::new(None))
-}
-
-pub fn load(filepath: PathBuf) -> Result<Config, Error> {
-    match read_file(&filepath) {
-        Ok(content) => match toml::from_str::<Config>(&content) {
-            Ok(mut config) => {
-                config.set_filepath(filepath);
-                config.set_tmp_dir("/tmp/dev");
-                Ok(config)
-            }
-            Err(e) => Err(Error::TomlDe(e)),
-        },
-        Err(err) => match err.kind() {
-            io::ErrorKind::NotFound => {
-                debug!("No config found in this directory, using default settings");
-                Ok(Config::new(None))
-            }
-            _ => Err(Error::Io(err)),
-        },
-    }
 }
 
 fn read_file(filepath: &PathBuf) -> Result<String, io::Error> {
@@ -249,4 +236,47 @@ fn write_file(filepath: &PathBuf, config: &Config) -> Result<Config, Error> {
     file?.write_all(toml_str.as_bytes())?;
 
     Ok(config.to_owned())
+}
+
+#[derive(Debug)]
+pub enum Error {
+    Io(io::Error),
+    TomlDe(toml::de::Error),
+    TomlSer(toml::ser::Error),
+    Duplicate(String),
+    Merge(String),
+    NotFound,
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Error::Io(e) => e.fmt(f),
+            Error::TomlDe(e) => e.fmt(f),
+            Error::TomlSer(e) => e.fmt(f),
+            Error::Duplicate(e) => e.fmt(f),
+            Error::Merge(e) => e.fmt(f),
+            Error::NotFound => self.fmt(f),
+        }
+    }
+}
+
+impl error::Error for Error {}
+
+impl From<io::Error> for Error {
+    fn from(e: io::Error) -> Self {
+        Error::Io(e)
+    }
+}
+
+impl From<toml::de::Error> for Error {
+    fn from(e: toml::de::Error) -> Self {
+        Error::TomlDe(e)
+    }
+}
+
+impl From<toml::ser::Error> for Error {
+    fn from(e: toml::ser::Error) -> Self {
+        Error::TomlSer(e)
+    }
 }

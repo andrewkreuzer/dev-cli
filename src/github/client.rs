@@ -1,10 +1,30 @@
 use ::reqwest::{Client, RequestBuilder};
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
+use thiserror::Error;
 
-use super::graphql::pull_request::open::{
-    queries::{PullRequest, PullRequestOpenArguments},
-    run_query,
+use super::graphql::{
+    pull_request::open::{
+        queries::{PullRequest, PullRequestOpenArguments},
+        run_query,
+    },
+    errors::OptionExt,
 };
+
+#[derive(Error, Debug)]
+pub enum GithubClientError {
+    #[error("GitHub authentication error: {0}")]
+    AuthenticationError(String),
+    #[error("GitHub API request failed: {0}")]
+    RequestError(#[from] reqwest::Error),
+    #[error("GitHub environment error: {0}")]
+    EnvironmentError(String),
+}
+
+impl From<std::env::VarError> for GithubClientError {
+    fn from(err: std::env::VarError) -> Self {
+        GithubClientError::EnvironmentError(format!("Missing environment variable: {}", err))
+    }
+}
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -33,11 +53,20 @@ pub struct GithubClient {
 
 impl GithubClient {
     fn new() -> Result<Self, anyhow::Error> {
-        let github_token = match std::env::var("GITHUB_TOKEN") {
-            Ok(token) => token,
-            Err(err) => return Err(anyhow!("{err}: \"GITHUB_TOKEN\"")),
-        };
+        // Get GitHub token with better error message
+        let github_token = std::env::var("GITHUB_TOKEN")
+            .map_err(GithubClientError::from)
+            .with_context(|| "GitHub token is required. Set the GITHUB_TOKEN environment variable.")?;
 
+        // Validate token is not empty
+        if github_token.trim().is_empty() {
+            return Err(GithubClientError::AuthenticationError(
+                "GitHub token is empty".to_string(),
+            )
+            .into());
+        }
+
+        // Build the client with error handling
         let client = Client::builder()
             .user_agent(format!("dev-cli/v{VERSION}"))
             .default_headers(
@@ -45,11 +74,14 @@ impl GithubClient {
                     reqwest::header::AUTHORIZATION,
                     reqwest::header::HeaderValue::from_str(
                         format!("Bearer {}", github_token).as_str(),
-                    )?,
+                    )
+                    .map_err(|e| anyhow!("Invalid header value: {}", e))?,
                 ))
                 .collect(),
             )
-            .build()?;
+            .build()
+            .map_err(GithubClientError::from)
+            .context("Failed to build HTTP client")?;
 
         Ok(GithubClient {
             endpoint: "https://api.github.com/graphql".to_string(),

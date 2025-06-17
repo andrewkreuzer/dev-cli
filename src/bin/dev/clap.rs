@@ -4,7 +4,7 @@ use std::{
     path::PathBuf,
 };
 
-use dev_cli::config;
+use dev_cli::config::Config;
 use env_logger::Target;
 use log::LevelFilter;
 
@@ -39,7 +39,7 @@ struct Cli {
 }
 
 pub trait Command {
-    async fn run(&self, config: &mut config::Config) -> Result<(), anyhow::Error>;
+    async fn run(&self, config: &mut Config) -> Result<(), anyhow::Error>;
 }
 
 #[derive(Subcommand)]
@@ -64,11 +64,11 @@ pub async fn init() -> Result<(), anyhow::Error> {
     log(cli.verbose.log_level_filter())?;
 
     let config_path: PathBuf = match cli.config {
-        Some(path) => path.to_path_buf(),
+        Some(path) => path,
         None => PathBuf::new().join("dev.toml"),
     };
 
-    let mut config = config::load(config_path)?;
+    let mut config = Config::load(config_path)?;
     let cfg = config.borrow_mut();
     if let Some(cmd) = cli.command {
         match cmd {

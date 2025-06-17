@@ -1,18 +1,26 @@
-use cynic::{http::ReqwestExt, GraphQlResponse, QueryBuilder};
+use cynic::{http::ReqwestExt, QueryBuilder};
 
-use crate::github::client::GithubClient;
-use queries::{RepositoryInfo, RepositoryInfoArguments};
+use crate::github::{
+    client::GithubClient,
+    graphql::errors::{process_response, OptionExt},
+};
+use queries::{Repository, RepositoryInfo, RepositoryInfoArguments};
 
 pub async fn run_query(
     client: &GithubClient,
     name: String,
     owner: String,
-) -> Result<GraphQlResponse<RepositoryInfo>, anyhow::Error> {
+) -> Result<Repository, anyhow::Error> {
     let query = build_query(name, owner);
-
-    let response_data = client.post().run_graphql(query).await?;
-
-    Ok(response_data)
+    
+    let response = client.post().run_graphql(query).await?;
+    
+    // Process the GraphQL response to extract data or get detailed error info
+    let data = process_response(response, "Repository query")?;
+    
+    // Extract the repository data with clear error messages
+    data.repository
+        .context_err(&format!("Repository '{owner}/{name}' not found"))
 }
 
 fn build_query(
